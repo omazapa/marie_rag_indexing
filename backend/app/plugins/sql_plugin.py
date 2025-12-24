@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, text
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Generator
 from .base import BasePlugin, Document
 
 class SQLPlugin(BasePlugin):
@@ -15,8 +15,7 @@ class SQLPlugin(BasePlugin):
 
         self.engine = create_engine(self.connection_string)
 
-    def fetch_data(self) -> List[Document]:
-        documents = []
+    def load_data(self) -> Generator[Document, None, None]:
         try:
             with self.engine.connect() as connection:
                 result = connection.execute(text(self.query))
@@ -36,14 +35,29 @@ class SQLPlugin(BasePlugin):
                         if col in row_dict:
                             metadata[col] = row_dict[col]
                     
-                    documents.append(Document(
+                    yield Document(
                         content=str(content),
-                        metadata=metadata
-                    ))
+                        metadata=metadata,
+                        source_id=self.config.get("id", "unknown")
+                    )
         except Exception as e:
             print(f"Error fetching data from SQL: {e}")
-            
-        return documents
+
+    @property
+    def plugin_id(self) -> str:
+        return "sql"
+
+    @property
+    def display_name(self) -> str:
+        return "SQL Database"
+
+    def test_connection(self) -> bool:
+        try:
+            with self.engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            return True
+        except Exception:
+            return False
 
     def validate_config(self) -> bool:
         return all([self.connection_string, self.query])

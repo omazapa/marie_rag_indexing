@@ -21,7 +21,7 @@ class MongoDBPlugin(BasePlugin):
         if self.collection_name:
             self.collection = self.db[self.collection_name]
 
-    def fetch_data(self) -> List[Document]:
+    def load_data(self) -> List[Document]:
         documents = []
         try:
             if self.query_mode:
@@ -60,17 +60,28 @@ class MongoDBPlugin(BasePlugin):
                     if val is not None:
                         metadata[field] = val
                 
-                documents.append(Document(
+                yield Document(
                     content=str(content),
                     metadata=metadata,
                     source_id=str(item.get('_id', ''))
-                ))
+                )
         except Exception as e:
             print(f"Error fetching data from MongoDB: {e}")
             
-        return documents
+    def test_connection(self) -> bool:
+        try:
+            self.client.admin.command('ismaster')
+            return True
+        except:
+            return False
 
     def validate_config(self) -> bool:
-        if self.query_mode:
-            return all([self.connection_string, self.database_name, self.collection_name])
         return all([self.connection_string, self.database_name, self.collection_name])
+
+    @property
+    def plugin_id(self) -> str:
+        return "mongodb"
+
+    @property
+    def display_name(self) -> str:
+        return "MongoDB"

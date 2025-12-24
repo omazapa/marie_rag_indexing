@@ -1,3 +1,4 @@
+import threading
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import os
@@ -17,6 +18,11 @@ load_dotenv()
 # In-memory storage for demo purposes
 data_sources = [
     {"id": "1", "name": "Local Docs", "type": "local_file", "status": "active", "lastRun": "2025-12-23 10:00", "config": {"base_path": "./docs"}},
+]
+
+embedding_models = [
+    {"id": "1", "name": "MiniLM (Local)", "provider": "huggingface", "model": "all-MiniLM-L6-v2", "status": "active", "config": {}},
+    {"id": "2", "name": "Llama 3 (Ollama)", "provider": "ollama", "model": "llama3", "status": "active", "config": {"base_url": "http://localhost:11434"}},
 ]
 
 def create_app():
@@ -103,6 +109,30 @@ def create_app():
     def get_sources():
         return jsonify({"sources": data_sources}), 200
 
+    @app.route('/api/v1/models', methods=['GET'])
+    def get_models():
+        return jsonify({"models": embedding_models}), 200
+
+    @app.route('/api/v1/models', methods=['POST'])
+    def add_model():
+        data = request.json
+        new_model = {
+            "id": str(len(embedding_models) + 1),
+            "name": data.get("name"),
+            "provider": data.get("provider"),
+            "model": data.get("model"),
+            "status": "active",
+            "config": data.get("config", {})
+        }
+        embedding_models.append(new_model)
+        return jsonify(new_model), 201
+
+    @app.route('/api/v1/models/<model_id>', methods=['DELETE'])
+    def delete_model(model_id):
+        global embedding_models
+        embedding_models = [m for m in embedding_models if m['id'] != model_id]
+        return jsonify({"status": "success"}), 200
+
     @app.route('/api/v1/stats', methods=['GET'])
     def get_stats():
         return jsonify({
@@ -141,6 +171,11 @@ def create_app():
         config = data.get("config", {})
         chunk_settings = data.get("chunk_settings", {})
         index_name = data.get("index_name", "default_index")
+        embedding_model = data.get("embedding_model", "all-MiniLM-L6-v2")
+        embedding_provider = data.get("embedding_provider", "huggingface")
+        embedding_config = data.get("embedding_config", {})
+        execution_mode = data.get("execution_mode", "sequential")
+        max_workers = data.get("max_workers", 4)
 
         if plugin_id == "local_file":
             plugin = LocalFilePlugin(config)
@@ -156,12 +191,22 @@ def create_app():
             return jsonify({"status": "error", "message": "Plugin not supported yet"}), 400
 
         chunk_config = ChunkConfig(**chunk_settings)
-        orchestrator = IngestionOrchestrator(plugin, chunk_config, index_name)
+        orchestrator = IngestionOrchestrator(
+            plugin, 
+            chunk_config, 
+            index_name,
+            embedding_model=embedding_model,
+            embedding_provider=embedding_provider,
+            embedding_config=embedding_config,
+            execution_mode=execution_mode,
+            max_workers=max_workers
+        )
         
-        # In a real scenario, this should be asynchronous (Celery/Redis)
-        orchestrator.run()
+        # Run ingestion in a background thread
+        thread = threading.Thread(target=orchestrator.run)
+        thread.start()
         
-        return jsonify({"status": "success", "message": "Ingestion completed"}), 200
+        return jsonify({"status": "success", "message": "Ingestion started"}), 200
 
     return app
 

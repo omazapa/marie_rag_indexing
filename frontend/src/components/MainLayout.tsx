@@ -7,7 +7,8 @@ import {
   Database, 
   Settings, 
   Activity,
-  FileText
+  FileText,
+  Cpu
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -23,6 +24,11 @@ const items = [
     key: 'sources',
     icon: <Database size={18} />,
     label: <Link href="/sources">Data Sources</Link>,
+  },
+  {
+    key: 'models',
+    icon: <Cpu size={18} />,
+    label: <Link href="/models">Embedding Models</Link>,
   },
   {
     key: 'indices',

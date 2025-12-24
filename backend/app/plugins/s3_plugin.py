@@ -1,6 +1,6 @@
 import boto3
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Generator
 from .base import BasePlugin, Document
 
 class S3Plugin(BasePlugin):
@@ -24,8 +24,7 @@ class S3Plugin(BasePlugin):
             region_name=self.region_name
         )
 
-    def fetch_data(self) -> List[Document]:
-        documents = []
+    def load_data(self) -> Generator[Document, None, None]:
         try:
             paginator = self.s3.get_paginator('list_objects_v2')
             pages = paginator.paginate(Bucket=self.bucket_name, Prefix=self.prefix)
@@ -43,7 +42,7 @@ class S3Plugin(BasePlugin):
                     response = self.s3.get_object(Bucket=self.bucket_name, Key=key)
                     content = response['Body'].read().decode('utf-8', errors='ignore')
                     
-                    documents.append(Document(
+                    yield Document(
                         content=content,
                         metadata={
                             "source": f"s3://{self.bucket_name}/{key}",
@@ -51,12 +50,26 @@ class S3Plugin(BasePlugin):
                             "key": key,
                             "size": obj['Size'],
                             "last_modified": str(obj['LastModified'])
-                        }
-                    ))
+                        },
+                        source_id=self.config.get("id", "unknown")
+                    )
         except Exception as e:
             print(f"Error fetching data from S3: {e}")
-            
-        return documents
+
+    @property
+    def plugin_id(self) -> str:
+        return "s3"
+
+    @property
+    def display_name(self) -> str:
+        return "Amazon S3 / MinIO"
+
+    def test_connection(self) -> bool:
+        try:
+            self.s3.list_objects_v2(Bucket=self.bucket_name, MaxKeys=1)
+            return True
+        except Exception:
+            return False
 
     def validate_config(self) -> bool:
         return all([self.bucket_name, self.aws_access_key_id, self.aws_secret_access_key])

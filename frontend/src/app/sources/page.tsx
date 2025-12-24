@@ -16,7 +16,9 @@ import {
   App,
   Spin,
   Tree,
-  Divider
+  Divider,
+  InputNumber,
+  Flex
 } from 'antd';
 import { Plus, Play, Settings, Trash2, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -25,6 +27,7 @@ import { pluginService } from '@/services/pluginService';
 import { ingestionService } from '@/services/ingestionService';
 import { LogViewer } from '@/components/LogViewer';
 import { mongodbService } from '@/services/mongodbService';
+import { modelService } from '@/services/modelService';
 
 const { Title, Text } = Typography;
 
@@ -55,8 +58,13 @@ export default function SourcesPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
+  const [selectedSourceForIngest, setSelectedSourceForIngest] = useState<DataSource | null>(null);
   const [form] = Form.useForm();
+  const [ingestForm] = Form.useForm();
   const selectedType = Form.useWatch('type', form);
+  const chunkStrategy = Form.useWatch('strategy', ingestForm);
+  const executionMode = Form.useWatch('execution_mode', ingestForm);
   const mongoConnStr = Form.useWatch('connection_string', form);
   const mongoDb = Form.useWatch('database', form);
   const mongoColl = Form.useWatch('collection', form);
@@ -150,6 +158,11 @@ export default function SourcesPage() {
     queryFn: pluginService.getPlugins,
   });
 
+  const { data: availableModels } = useQuery({
+    queryKey: ['models'],
+    queryFn: modelService.getModels,
+  });
+
   // Add Source Mutation
   const addSourceMutation = useMutation({
     mutationFn: sourceService.addSource,
@@ -211,17 +224,20 @@ export default function SourcesPage() {
           <Button 
             type="text" 
             icon={<Play size={16} />} 
-            loading={ingestMutation.isPending}
-            onClick={() => ingestMutation.mutate({
-              plugin_id: record.type,
-              config: record.config,
-              chunk_settings: {
-                method: 'recursive',
+            loading={ingestMutation.isPending && selectedSourceForIngest?.id === record.id}
+            onClick={() => {
+              setSelectedSourceForIngest(record);
+              setIsIngestModalOpen(true);
+              ingestForm.setFieldsValue({
+                strategy: 'recursive',
                 chunk_size: 1000,
-                chunk_overlap: 200
-              },
-              index_name: record.name.toLowerCase().replace(/\s+/g, '_')
-            })} 
+                chunk_overlap: 200,
+                index_name: record.name.toLowerCase().replace(/\s+/g, '_'),
+                embedding_model_id: availableModels?.[0]?.id,
+                execution_mode: 'sequential',
+                max_workers: 4
+              });
+            }} 
           />
           <Button type="text" icon={<Settings size={16} />} />
           <Button type="text" danger icon={<Trash2 size={16} />} />
@@ -473,6 +489,106 @@ export default function SourcesPage() {
               </Form.Item>
             </>
           )}
+        </Form>
+      </Modal>
+
+      <Modal
+        title={`Run Ingestion: ${selectedSourceForIngest?.name}`}
+        open={isIngestModalOpen}
+        onOk={() => ingestForm.submit()}
+        onCancel={() => setIsIngestModalOpen(false)}
+        confirmLoading={ingestMutation.isPending}
+        width={600}
+      >
+        <Form
+          form={ingestForm}
+          layout="vertical"
+          onFinish={(values) => {
+            if (!selectedSourceForIngest) return;
+            const selectedModel = availableModels?.find(m => m.id === values.embedding_model_id);
+            ingestMutation.mutate({
+              plugin_id: selectedSourceForIngest.type,
+              config: selectedSourceForIngest.config,
+              chunk_settings: {
+                strategy: values.strategy,
+                chunk_size: values.chunk_size,
+                chunk_overlap: values.chunk_overlap,
+                separators: values.separators,
+                encoding_name: values.encoding_name
+              },
+              index_name: values.index_name,
+              embedding_model: selectedModel?.model || 'all-MiniLM-L6-v2',
+              embedding_provider: selectedModel?.provider || 'huggingface',
+              embedding_config: selectedModel?.config || {},
+              execution_mode: values.execution_mode,
+              max_workers: values.max_workers
+            }, {
+              onSuccess: () => setIsIngestModalOpen(false)
+            });
+          }}
+        >
+          <Form.Item name="index_name" label="OpenSearch Index Name" rules={[{ required: true }]}>
+            <Input placeholder="my_index" />
+          </Form.Item>
+
+          <Divider titlePlacement="left">Embedding & Execution</Divider>
+          
+          <Form.Item name="embedding_model_id" label="Embedding Model" rules={[{ required: true }]}>
+            <Select placeholder="Select a configured model">
+              {availableModels?.map(m => (
+                <Select.Option key={m.id} value={m.id}>
+                  {m.name} ({m.provider.toUpperCase()}: {m.model})
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Flex gap="middle">
+            <Form.Item name="execution_mode" label="Execution Mode" initialValue="sequential" className="flex-1">
+              <Select>
+                <Select.Option value="sequential">Sequential</Select.Option>
+                <Select.Option value="parallel">Parallel</Select.Option>
+              </Select>
+            </Form.Item>
+            {executionMode === 'parallel' && (
+              <Form.Item name="max_workers" label="Max Workers (Jobs)" initialValue={4} className="flex-1">
+                <InputNumber min={1} max={16} style={{ width: '100%' }} />
+              </Form.Item>
+            )}
+          </Flex>
+
+          <Divider titlePlacement="left">Chunking Configuration</Divider>
+          
+          <Form.Item name="strategy" label="Chunking Strategy" initialValue="recursive">
+            <Select>
+              <Select.Option value="recursive">Recursive Character (Recommended)</Select.Option>
+              <Select.Option value="character">Simple Character</Select.Option>
+              <Select.Option value="token">Token Based (OpenAI/Tiktoken)</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Flex gap="middle">
+            <Form.Item name="chunk_size" label="Chunk Size" initialValue={1000} className="flex-1">
+              <InputNumber min={1} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="chunk_overlap" label="Chunk Overlap" initialValue={200} className="flex-1">
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+          </Flex>
+
+          {chunkStrategy === 'recursive' || chunkStrategy === 'character' ? (
+            <Form.Item name="separators" label="Custom Separators (Optional)">
+              <Select mode="tags" placeholder="e.g. \n\n, \n, ' '" />
+            </Form.Item>
+          ) : chunkStrategy === 'token' ? (
+            <Form.Item name="encoding_name" label="Token Encoding" initialValue="cl100k_base">
+              <Select>
+                <Select.Option value="cl100k_base">cl100k_base (GPT-4, GPT-3.5)</Select.Option>
+                <Select.Option value="p50k_base">p50k_base (Codex)</Select.Option>
+                <Select.Option value="r50k_base">r50k_base (GPT-3)</Select.Option>
+              </Select>
+            </Form.Item>
+          ) : null}
         </Form>
       </Modal>
     </div>

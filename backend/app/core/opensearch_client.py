@@ -22,7 +22,7 @@ class OpenSearchClient:
             ssl_show_warn=False
         )
 
-    def create_index(self, index_name: str, body: Dict[str, Any] = None):
+    def create_index(self, index_name: str, dimension: int = 384, body: Dict[str, Any] = None):
         """Creates an index if it doesn't exist."""
         if not self.client.indices.exists(index=index_name):
             if not body:
@@ -39,7 +39,7 @@ class OpenSearchClient:
                             "content": {"type": "text"},
                             "embedding": {
                                 "type": "knn_vector",
-                                "dimension": 1536,  # Default for OpenAI, adjust as needed
+                                "dimension": dimension,
                                 "method": {
                                     "name": "hnsw",
                                     "space_type": "l2",

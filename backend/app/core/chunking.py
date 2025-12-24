@@ -25,17 +25,24 @@ class ChunkingEngine:
         self.splitter = self._get_splitter()
 
     def _get_splitter(self):
+        # Unescape common separators if provided as strings like "\n"
+        separators = self.config.separators
+        if separators:
+            separators = [s.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r") for s in separators]
+
         if self.config.strategy == "recursive":
-            return RecursiveCharacterTextSplitter(
-                chunk_size=self.config.chunk_size,
-                chunk_overlap=self.config.chunk_overlap,
-                separators=self.config.separators
-            )
+            kwargs = {
+                "chunk_size": self.config.chunk_size,
+                "chunk_overlap": self.config.chunk_overlap,
+            }
+            if separators:
+                kwargs["separators"] = separators
+            return RecursiveCharacterTextSplitter(**kwargs)
         elif self.config.strategy == "character":
             return CharacterTextSplitter(
                 chunk_size=self.config.chunk_size,
                 chunk_overlap=self.config.chunk_overlap,
-                separator=self.config.separators[0] if self.config.separators else "\n\n"
+                separator=separators[0] if separators else "\n\n"
             )
         elif self.config.strategy == "token":
             return TokenTextSplitter(

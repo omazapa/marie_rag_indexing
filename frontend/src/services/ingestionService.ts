@@ -4,11 +4,18 @@ export interface IngestionRequest {
   plugin_id: string;
   config: Record<string, any>;
   chunk_settings: {
-    method: string;
+    strategy: string;
     chunk_size: number;
     chunk_overlap: number;
+    separators?: string[];
+    encoding_name?: string;
   };
   index_name: string;
+  embedding_model: string;
+  embedding_provider: string;
+  embedding_config: Record<string, any>;
+  execution_mode: 'sequential' | 'parallel';
+  max_workers: number;
 }
 
 export const ingestionService = {
