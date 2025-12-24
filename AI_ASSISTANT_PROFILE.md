@@ -27,6 +27,7 @@
   - Microservices architecture
   - Database integration
   - Authentication and authorization
+  - **Package Management**: uv & pyproject.toml implementation
 
 ### Software Architecture
 

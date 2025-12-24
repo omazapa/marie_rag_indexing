@@ -45,7 +45,13 @@ The system is designed to support multiple RAG paradigms (Naive, Advanced, Modul
 
 - **Frontend**: Next.js with Ant Design & Ant Design X.
 - **Backend**: Flask API for orchestration.
-- **Features**: Visual job control, real-time progress, live logs, and configuration builders.
+- **Features**: 
+    - Visual job control, real-time progress, live logs, and configuration builders.
+    - **Specialized MongoDB UI**:
+        - Database and collection discovery.
+        - Schema-aware field selection for content and metadata.
+        - Support for custom aggregation pipelines and find queries.
+        - Advanced reference mapping and per-source chunking configuration.
 
 ### 5. Reliability & Performance
 

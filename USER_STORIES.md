@@ -6,57 +6,57 @@ This document outlines the user stories and acceptance criteria for the `marie_r
 
 ## 1. Data Ingestion & Connectivity
 
-### US1.1: Multi-Source Database Connection
+### US1.1: Multi-Source Database Connection [IMPLEMENTED]
 **As an** administrator,
 **I want to** configure connections to SQL (PostgreSQL, MySQL) and NoSQL (MongoDB) databases,
 **so that** I can ingest structured and semi-structured data into the RAG system.
 - **Acceptance Criteria:**
-    - Support for connection strings and credential management.
-    - Ability to test the connection before saving.
-    - Support for custom SQL queries or MongoDB aggregation pipelines for data selection.
-    - Traceability of which database and table/collection the data originated from.
+    - [x] Support for connection strings and credential management.
+    - [ ] Ability to test the connection before saving.
+    - [x] Support for custom SQL queries or MongoDB aggregation pipelines for data selection.
+    - [x] Traceability of which database and table/collection the data originated from.
 
-### US1.2: Advanced Web Scraping
+### US1.2: Advanced Web Scraping [IMPLEMENTED]
 **As a** user,
 **I want to** scrape content from static and dynamic (JS-rendered) websites,
 **so that** I can index web-based documentation and articles.
 - **Acceptance Criteria:**
-    - Integration with Playwright/Selenium for dynamic content.
-    - Support for recursive crawling with configurable depth.
-    - Ability to provide a Sitemap URL for targeted ingestion.
-    - Handling of authentication (Basic Auth, Cookies, Headers).
+    - [ ] Integration with Playwright/Selenium for dynamic content (Basic BS4 implemented).
+    - [x] Support for recursive crawling with configurable depth.
+    - [ ] Ability to provide a Sitemap URL for targeted ingestion.
+    - [ ] Handling of authentication (Basic Auth, Cookies, Headers).
 
-### US1.3: Cloud & Object Storage Integration
+### US1.3: Cloud & Object Storage Integration [IMPLEMENTED]
 **As a** developer,
 **I want to** connect to S3-compatible storage (AWS S3, MinIO) and cloud services (Google Drive, OneDrive),
 **so that** I can process documents stored in the cloud.
 - **Acceptance Criteria:**
-    - Support for bucket/folder level scanning.
-    - Automatic detection of file types (PDF, DOCX, TXT, etc.).
-    - Support for service account authentication (Google Cloud) and Access/Secret keys (S3).
+    - [x] Support for bucket/folder level scanning.
+    - [x] Automatic detection of file types (PDF, DOCX, TXT, etc.).
+    - [x] Support for service account authentication (Google Cloud) and Access/Secret keys (S3).
 
-### US1.4: Local & Network File System Scanning
+### US1.4: Local & Network File System Scanning [IMPLEMENTED]
 **As a** user,
 **I want to** index files from local directories and NAS storage,
 **so that** I can make my local knowledge base searchable.
 - **Acceptance Criteria:**
-    - Recursive directory scanning.
-    - Support for large file handling without memory overflow.
-    - Monitoring for file changes (optional/future) or manual trigger for re-scan.
+    - [x] Recursive directory scanning.
+    - [x] Support for large file handling without memory overflow.
+    - [ ] Monitoring for file changes (optional/future) or manual trigger for re-scan.
 
 ---
 
 ## 2. Indexing & Chunking Logic
 
-### US2.1: LangChain Strategy Configuration
+### US2.1: LangChain Strategy Configuration [IMPLEMENTED]
 **As a** data engineer,
 **I want to** select and parameterize LangChain chunking strategies,
 **so that** I can tailor the data structure to the specific needs of the LLM.
 - **Acceptance Criteria:**
-    - Support for `RecursiveCharacterTextSplitter`, `SemanticChunker`, and `TokenTextSplitter`.
-    - Configurable `chunk_size` and `chunk_overlap`.
-    - Specialized splitters for Markdown, HTML, and Code.
-    - Preview of chunking results in the UI.
+    - [x] Support for `RecursiveCharacterTextSplitter`.
+    - [x] Configurable `chunk_size` and `chunk_overlap`.
+    - [ ] Specialized splitters for Markdown, HTML, and Code.
+    - [ ] Preview of chunking results in the UI.
 
 ### US2.2: Declarative Field Mapping & Transformation
 **As a** user,
@@ -89,14 +89,48 @@ This document outlines the user stories and acceptance criteria for the `marie_r
 
 ## 3. Management Dashboard (Web UI)
 
-### US3.1: Centralized Management Interface
+### US3.1: Centralized Management Interface [IMPLEMENTED]
 **As an** operator,
 **I want to** use a web dashboard built with Ant Design,
 **so that** I can manage all aspects of the system without using the CLI.
 - **Acceptance Criteria:**
-    - Responsive design using AntD components.
-    - Dashboard overview showing system health, active jobs, and index statistics.
-    - Secure login and session management.
+    - [x] Responsive design using AntD components.
+    - [x] Dashboard overview showing system health, active jobs, and index statistics.
+    - [ ] Secure login and session management.
+
+### US3.2: Real-time Ingestion Monitoring [IMPLEMENTED]
+**As an** operator,
+**I want to** see real-time logs of the ingestion process,
+**so that** I can monitor progress and identify errors immediately.
+- **Acceptance Criteria:**
+    - [x] SSE (Server-Sent Events) stream for logs.
+    - [x] Log viewer component in the UI.
+    - [x] Auto-scrolling and level-based coloring.
+
+### US3.3: Source Management UI [IMPLEMENTED]
+**As a** user,
+**I want to** add, list, and trigger ingestion for data sources via the UI,
+**so that** I don't have to manually call APIs.
+- **Acceptance Criteria:**
+    - [x] Form to add new sources with plugin-specific config.
+    - [x] Table showing all configured sources and their status.
+    - [x] "Run" button to trigger ingestion.
+
+### US3.4: Advanced MongoDB Ingestion UI
+**As an** administrator,
+**I want to** configure MongoDB ingestion through a specialized interface,
+**so that** I can precisely control which data is indexed and how it is structured.
+- **Acceptance Criteria:**
+    - **Database Selection**: Input field for the target database name.
+    - **Ingestion Modes**:
+        - **Collection Mode**: Select a collection and automatically fetch its schema/sample document.
+        - **Query Mode**: Input a custom MongoDB aggregation pipeline or find query.
+    - **Field Mapping (Collection Mode)**:
+        - Select specific fields to be used as "Content" or "Metadata".
+        - Define custom references (e.g., linking to external IDs or creating synthetic fields).
+    - **Advanced Parameters**:
+        - Configure chunking strategy (Recursive, Semantic, etc.) per collection.
+        - Define additional parameters for data transformation before indexing.
 
 ### US3.2: Visual Ingestion Control
 **As a** user,
