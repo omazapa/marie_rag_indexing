@@ -24,8 +24,9 @@ class PGVectorAdapter(VectorStorePort):
     Adapter for PostgreSQL with pgvector extension.
     """
     
-    def __init__(self):
-        db_url = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/db")
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
+        db_url = self.config.get("connection_string") or os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/db")
         self.engine = create_engine(db_url)
         self.Session = sessionmaker(bind=self.engine)
         
@@ -95,8 +96,39 @@ class PGVectorAdapter(VectorStorePort):
             return formatted_results
         finally:
             session.close()
+
     def list_indices(self) -> List[Dict[str, Any]]:
-        return []
+        session = self.Session()
+        try:
+            from sqlalchemy import func
+            indices = session.query(PGChunk.index_name).distinct().all()
+            return [{"name": name[0], "status": "active", "documents": "N/A", "size": "N/A"} for name in indices]
+        finally:
+            session.close()
+
+    def delete_index(self, index_name: str) -> bool:
+        session = self.Session()
+        try:
+            session.query(PGChunk).filter(PGChunk.index_name == index_name).delete()
+            session.commit()
+            return True
+        finally:
+            session.close()
+
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "connection_string": {
+                    "type": "string",
+                    "title": "Connection String",
+                    "description": "PostgreSQL connection string (e.g., postgresql://user:pass@localhost:5432/db)",
+                    "default": "postgresql://user:pass@localhost:5432/db"
+                }
+            },
+            "required": ["connection_string"]
+        }
 
     def delete_index(self, index_name: str) -> bool:
         return True

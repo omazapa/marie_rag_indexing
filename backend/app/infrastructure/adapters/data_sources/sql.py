@@ -62,3 +62,36 @@ class SQLAdapter(DataSourcePort):
 
     def validate_config(self) -> bool:
         return all([self.connection_string, self.query])
+
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "connection_string": {
+                    "type": "string",
+                    "title": "Connection String",
+                    "description": "SQLAlchemy connection string (e.g., postgresql://user:pass@localhost/db)",
+                    "default": "postgresql://user:pass@localhost/db"
+                },
+                "query": {
+                    "type": "string",
+                    "title": "SQL Query",
+                    "description": "SQL query to fetch data"
+                },
+                "content_column": {
+                    "type": "string",
+                    "title": "Content Column",
+                    "description": "Column containing the text to be indexed",
+                    "default": "content"
+                },
+                "metadata_columns": {
+                    "type": "array",
+                    "title": "Metadata Columns",
+                    "description": "Columns to include as metadata",
+                    "items": {"type": "string"},
+                    "default": []
+                }
+            },
+            "required": ["connection_string", "query"]
+        }

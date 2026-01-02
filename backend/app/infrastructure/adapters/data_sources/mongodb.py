@@ -75,6 +75,55 @@ class MongoDBAdapter(DataSourcePort):
     def validate_config(self) -> bool:
         return all([self.connection_string, self.database_name, self.collection_name])
 
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "connection_string": {
+                    "type": "string",
+                    "title": "Connection String",
+                    "description": "MongoDB connection URI (e.g., mongodb://localhost:27017)",
+                    "default": "mongodb://localhost:27017"
+                },
+                "database": {
+                    "type": "string",
+                    "title": "Database Name",
+                    "description": "Name of the database to index"
+                },
+                "collection": {
+                    "type": "string",
+                    "title": "Collection Name",
+                    "description": "Name of the collection to index"
+                },
+                "content_field": {
+                    "type": "string",
+                    "title": "Content Field",
+                    "description": "Field containing the text to be vectorized",
+                    "default": "text"
+                },
+                "metadata_fields": {
+                    "type": "array",
+                    "title": "Metadata Fields",
+                    "description": "Fields to include as metadata",
+                    "items": {"type": "string"},
+                    "default": []
+                },
+                "query_mode": {
+                    "type": "boolean",
+                    "title": "Enable Custom Query",
+                    "default": False
+                },
+                "query": {
+                    "type": "object",
+                    "title": "Custom Query/Pipeline",
+                    "description": "JSON query or aggregation pipeline",
+                    "default": {}
+                }
+            },
+            "required": ["connection_string", "database", "collection", "content_field"]
+        }
+
     @property
     def plugin_id(self) -> str:
         return "mongodb"

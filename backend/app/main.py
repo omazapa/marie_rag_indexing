@@ -27,6 +27,24 @@ from pymongo import MongoClient
 
 load_dotenv()
 
+# Plugin and Vector Store Mappings
+DATA_SOURCE_PLUGINS = {
+    "local_file": LocalFileAdapter,
+    "mongodb": MongoDBAdapter,
+    "s3": S3Adapter,
+    "sql": SQLAdapter,
+    "web_scraper": WebScraperAdapter,
+    "google_drive": GoogleDriveAdapter
+}
+
+VECTOR_STORE_PLUGINS = {
+    "opensearch": OpenSearchAdapter,
+    "pinecone": PineconeAdapter,
+    "qdrant": QdrantAdapter,
+    "milvus": MilvusAdapter,
+    "pgvector": PGVectorAdapter
+}
+
 # In-memory storage for demo purposes
 data_sources = [
     {"id": "1", "name": "Local Docs", "type": "local_file", "status": "active", "lastRun": "2025-12-23 10:00", "config": {"path": "./docs"}},
@@ -58,6 +76,16 @@ def create_app():
             ]
         }), 200
 
+    @app.route('/api/v1/plugins/<plugin_id>/schema', methods=['GET'])
+    def get_plugin_schema(plugin_id):
+        plugin_class = DATA_SOURCE_PLUGINS.get(plugin_id)
+        if not plugin_class:
+            return jsonify({"error": "Plugin not found"}), 404
+        try:
+            return jsonify(plugin_class.get_config_schema()), 200
+        except NotImplementedError:
+            return jsonify({"error": "Schema not implemented for this plugin"}), 501
+
     @app.route('/api/v1/vector_stores', methods=['GET'])
     def list_vector_stores():
         return jsonify({
@@ -69,6 +97,16 @@ def create_app():
                 {"id": "pgvector", "name": "PostgreSQL (pgvector)"}
             ]
         }), 200
+
+    @app.route('/api/v1/vector_stores/<vs_id>/schema', methods=['GET'])
+    def get_vector_store_schema(vs_id):
+        vs_class = VECTOR_STORE_PLUGINS.get(vs_id)
+        if not vs_class:
+            return jsonify({"error": "Vector store not found"}), 404
+        try:
+            return jsonify(vs_class.get_config_schema()), 200
+        except NotImplementedError:
+            return jsonify({"error": "Schema not implemented for this vector store"}), 501
 
     @app.route('/api/v1/indices', methods=['GET'])
     def list_indices():
@@ -273,6 +311,7 @@ def create_app():
         config = data.get("config", {})
         chunk_settings = data.get("chunk_settings", {})
         vector_store_id = data.get("vector_store", "opensearch")
+        vector_store_config = data.get("vector_store_config", {})
         index_name = data.get("index_name", "default_index")
         embedding_model = data.get("embedding_model", "all-MiniLM-L6-v2")
         embedding_provider = data.get("embedding_provider", "huggingface")
@@ -281,34 +320,16 @@ def create_app():
         max_workers = data.get("max_workers", 4)
 
         # Data Source Adapter Selection
-        if plugin_id == "local_file":
-            data_source = LocalFileAdapter(config)
-        elif plugin_id == "s3":
-            data_source = S3Adapter(config)
-        elif plugin_id == "mongodb":
-            data_source = MongoDBAdapter(config)
-        elif plugin_id == "sql":
-            data_source = SQLAdapter(config)
-        elif plugin_id == "web_scraper":
-            data_source = WebScraperAdapter(config)
-        elif plugin_id == "google_drive":
-            data_source = GoogleDriveAdapter(config)
-        else:
+        plugin_class = DATA_SOURCE_PLUGINS.get(plugin_id)
+        if not plugin_class:
             return jsonify({"status": "error", "message": f"Plugin {plugin_id} not supported"}), 400
+        data_source = plugin_class(config)
 
         # Vector Store Adapter Selection
-        if vector_store_id == "opensearch":
-            vector_store = OpenSearchAdapter()
-        elif vector_store_id == "pinecone":
-            vector_store = PineconeAdapter()
-        elif vector_store_id == "qdrant":
-            vector_store = QdrantAdapter()
-        elif vector_store_id == "milvus":
-            vector_store = MilvusAdapter()
-        elif vector_store_id == "pgvector":
-            vector_store = PGVectorAdapter()
-        else:
+        vs_class = VECTOR_STORE_PLUGINS.get(vector_store_id)
+        if not vs_class:
             return jsonify({"status": "error", "message": f"Vector store {vector_store_id} not supported"}), 400
+        vector_store = vs_class(vector_store_config)
 
         chunk_config = ChunkConfig(**chunk_settings)
         orchestrator = IngestionOrchestrator(

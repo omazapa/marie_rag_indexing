@@ -74,3 +74,45 @@ class S3Adapter(DataSourcePort):
 
     def validate_config(self) -> bool:
         return all([self.bucket_name, self.aws_access_key_id, self.aws_secret_access_key])
+
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "bucket_name": {
+                    "type": "string",
+                    "title": "Bucket Name",
+                    "description": "Name of the S3 bucket"
+                },
+                "prefix": {
+                    "type": "string",
+                    "title": "Prefix",
+                    "description": "Folder prefix (optional)",
+                    "default": ""
+                },
+                "endpoint_url": {
+                    "type": "string",
+                    "title": "Endpoint URL",
+                    "description": "Custom endpoint URL (for MinIO)",
+                    "default": ""
+                },
+                "aws_access_key_id": {
+                    "type": "string",
+                    "title": "Access Key ID",
+                    "description": "AWS Access Key ID"
+                },
+                "aws_secret_access_key": {
+                    "type": "string",
+                    "title": "Secret Access Key",
+                    "description": "AWS Secret Access Key"
+                },
+                "region_name": {
+                    "type": "string",
+                    "title": "Region",
+                    "description": "AWS Region",
+                    "default": "us-east-1"
+                }
+            },
+            "required": ["bucket_name", "aws_access_key_id", "aws_secret_access_key"]
+        }

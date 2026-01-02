@@ -77,3 +77,25 @@ class WebScraperAdapter(DataSourcePort):
 
     def validate_config(self) -> bool:
         return bool(self.base_url and self.base_url.startswith("http"))
+
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string",
+                    "title": "Base URL",
+                    "description": "URL of the website to scrape",
+                    "default": "https://example.com"
+                },
+                "max_depth": {
+                    "type": "integer",
+                    "title": "Max Depth",
+                    "description": "Maximum depth for crawling links",
+                    "default": 1,
+                    "minimum": 0
+                }
+            },
+            "required": ["base_url"]
+        }

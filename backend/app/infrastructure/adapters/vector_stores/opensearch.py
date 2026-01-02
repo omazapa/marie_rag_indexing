@@ -9,9 +9,12 @@ class OpenSearchAdapter(VectorStorePort):
     Adapter for OpenSearch vector store.
     """
     
-    def __init__(self):
-        url = os.getenv("OPENSEARCH_URL", "http://localhost:9200")
-        self.auth = (os.getenv("OPENSEARCH_USER", "admin"), os.getenv("OPENSEARCH_PASSWORD", "admin"))
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
+        url = self.config.get("url") or os.getenv("OPENSEARCH_URL", "http://localhost:9200")
+        user = self.config.get("user") or os.getenv("OPENSEARCH_USER", "admin")
+        password = self.config.get("password") or os.getenv("OPENSEARCH_PASSWORD", "admin")
+        self.auth = (user, password)
         
         self.client = OpenSearch(
             hosts=[url],
@@ -181,3 +184,30 @@ class OpenSearchAdapter(VectorStorePort):
             self.client.indices.delete(index=index_name)
             return True
         return False
+
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "title": "OpenSearch URL",
+                    "description": "URL of the OpenSearch instance",
+                    "default": "http://localhost:9200"
+                },
+                "user": {
+                    "type": "string",
+                    "title": "Username",
+                    "description": "OpenSearch username",
+                    "default": "admin"
+                },
+                "password": {
+                    "type": "string",
+                    "title": "Password",
+                    "description": "OpenSearch password",
+                    "default": "admin"
+                }
+            },
+            "required": ["url"]
+        }

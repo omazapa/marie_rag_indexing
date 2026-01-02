@@ -85,3 +85,22 @@ class GoogleDriveAdapter(DataSourcePort):
 
     def validate_config(self) -> bool:
         return bool(self.folder_id and self.service_account_info)
+
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "folder_id": {
+                    "type": "string",
+                    "title": "Folder ID",
+                    "description": "Google Drive Folder ID to index"
+                },
+                "service_account_info": {
+                    "type": "object",
+                    "title": "Service Account JSON",
+                    "description": "Content of the Google Service Account JSON file"
+                }
+            },
+            "required": ["folder_id", "service_account_info"]
+        }

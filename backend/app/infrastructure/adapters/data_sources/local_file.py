@@ -25,6 +25,34 @@ class LocalFileAdapter(DataSourcePort):
     def test_connection(self) -> bool:
         return self.validate_config()
 
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "title": "Directory Path",
+                    "description": "Absolute or relative path to the directory",
+                    "default": "./docs"
+                },
+                "recursive": {
+                    "type": "boolean",
+                    "title": "Recursive Search",
+                    "description": "Search in subdirectories",
+                    "default": True
+                },
+                "extensions": {
+                    "type": "array",
+                    "title": "File Extensions",
+                    "description": "List of extensions to include",
+                    "items": {"type": "string"},
+                    "default": [".txt", ".md", ".pdf"]
+                }
+            },
+            "required": ["path"]
+        }
+
     def load_data(self) -> Generator[Document, None, None]:
         base_path = self.config.get("path")
         recursive = self.config.get("recursive", True)

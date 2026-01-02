@@ -10,19 +10,24 @@ class PineconeAdapter(VectorStorePort):
     Adapter for Pinecone vector store.
     """
     
-    def __init__(self):
-        api_key = os.getenv("PINECONE_API_KEY")
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
+        api_key = self.config.get("api_key") or os.getenv("PINECONE_API_KEY")
         if not api_key:
-            raise ValueError("PINECONE_API_KEY environment variable is not set")
-        
-        self.pc = Pinecone(api_key=api_key)
+            # We don't raise here to allow listing schemas without keys
+            self.pc = None
+        else:
+            self.pc = Pinecone(api_key=api_key)
         self.index = None
 
     def create_index(self, index_name: str, dimension: int = 384, body: Optional[Dict[str, Any]] = None):
+        if not self.pc:
+            raise ValueError("Pinecone API key not configured")
+            
         if index_name not in self.pc.list_indexes().names():
             spec = ServerlessSpec(
-                cloud=os.getenv("PINECONE_CLOUD", "aws"),
-                region=os.getenv("PINECONE_REGION", "us-east-1")
+                cloud=self.config.get("cloud") or os.getenv("PINECONE_CLOUD", "aws"),
+                region=self.config.get("region") or os.getenv("PINECONE_REGION", "us-east-1")
             )
             
             self.pc.create_index(
@@ -94,8 +99,44 @@ class PineconeAdapter(VectorStorePort):
         return self.search(index_name, query_vector, k, filters)
 
     def list_indices(self) -> List[Dict[str, Any]]:
+        if not self.pc:
+            return []
         indexes = self.pc.list_indexes().names()
         return [{"name": name, "status": "active", "documents": "N/A", "size": "N/A"} for name in indexes]
+
+    def delete_index(self, index_name: str) -> bool:
+        if not self.pc:
+            return False
+        if index_name in self.pc.list_indexes().names():
+            self.pc.delete_index(index_name)
+            return True
+        return False
+
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string",
+                    "title": "API Key",
+                    "description": "Pinecone API Key"
+                },
+                "cloud": {
+                    "type": "string",
+                    "title": "Cloud Provider",
+                    "description": "Cloud provider (aws, gcp, azure)",
+                    "default": "aws"
+                },
+                "region": {
+                    "type": "string",
+                    "title": "Region",
+                    "description": "Pinecone region (e.g., us-east-1)",
+                    "default": "us-east-1"
+                }
+            },
+            "required": ["api_key"]
+        }
 
     def delete_index(self, index_name: str) -> bool:
         self.pc.delete_index(index_name)

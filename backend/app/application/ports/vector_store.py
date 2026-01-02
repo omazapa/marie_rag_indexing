@@ -46,3 +46,15 @@ class VectorStorePort(ABC):
     def delete_index(self, index_name: str) -> bool:
         """Deletes an index/collection."""
         pass
+
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> Dict[str, Any]:
+        """Return the JSON schema for the vector store configuration."""
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> Dict[str, Any]:
+        """Return the JSON schema for the vector store configuration."""
+        pass

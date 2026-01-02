@@ -10,9 +10,10 @@ class QdrantAdapter(VectorStorePort):
     Adapter for Qdrant vector store.
     """
     
-    def __init__(self):
-        url = os.getenv("QDRANT_URL", "http://localhost:6333")
-        api_key = os.getenv("QDRANT_API_KEY")
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
+        url = self.config.get("url") or os.getenv("QDRANT_URL", "http://localhost:6333")
+        api_key = self.config.get("api_key") or os.getenv("QDRANT_API_KEY")
         self.client = QdrantClient(url=url, api_key=api_key)
 
     def create_index(self, index_name: str, dimension: int = 384, body: Optional[Dict[str, Any]] = None):
@@ -52,9 +53,6 @@ class QdrantAdapter(VectorStorePort):
     def get_checkpoint(self, source_id: str) -> Optional[Dict[str, Any]]:
         return None
 
-    def hybrid_search(self, index_name: str, query_text: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        return self.search(index_name, query_vector, k, filters)
-
     def search(self, index_name: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         search_result = self.client.search(
             collection_name=index_name,
@@ -73,8 +71,32 @@ class QdrantAdapter(VectorStorePort):
                 "chunk_id": str(hit.id)
             })
         return formatted_results
+
     def list_indices(self) -> List[Dict[str, Any]]:
-        return []
+        collections = self.client.get_collections().collections
+        return [{"name": c.name, "status": "active", "documents": "N/A", "size": "N/A"} for c in collections]
 
     def delete_index(self, index_name: str) -> bool:
+        self.client.delete_collection(collection_name=index_name)
         return True
+
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "title": "Qdrant URL",
+                    "description": "URL of the Qdrant server",
+                    "default": "http://localhost:6333"
+                },
+                "api_key": {
+                    "type": "string",
+                    "title": "API Key",
+                    "description": "Qdrant API Key (optional)",
+                    "default": ""
+                }
+            },
+            "required": ["url"]
+        }

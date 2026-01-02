@@ -25,7 +25,7 @@ import { Plus, Play, Settings, Trash2, Search, Bot, Database as DbIcon, Globe, F
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Welcome } from '@ant-design/x';
 import { sourceService, DataSource } from '@/services/sourceService';
-import { pluginService } from '@/services/pluginService';
+import { pluginService, ConfigSchema } from '@/services/pluginService';
 import { ingestionService } from '@/services/ingestionService';
 import { assistantService } from '@/services/assistantService';
 import { LogViewer } from '@/components/LogViewer';
@@ -33,6 +33,7 @@ import { mongodbService } from '@/services/mongodbService';
 import { modelService } from '@/services/modelService';
 import { vectorStoreService } from '@/services/vectorStoreService';
 import { BRAND_CONFIG } from '@/core/branding';
+import { DynamicConfigForm } from '@/components/DynamicConfigForm';
 import Link from 'next/link';
 
 const { Title, Text } = Typography;
@@ -185,6 +186,11 @@ export default function SourcesPage() {
     }
   }, [selectedType, mongoConnStr, mongoDb, mongoColl, mongoQueryMode]);
 
+  const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
+  const [pluginSchema, setPluginSchema] = useState<ConfigSchema | null>(null);
+  const [selectedVsId, setSelectedVsId] = useState<string | null>(null);
+  const [vsSchema, setVsSchema] = useState<ConfigSchema | null>(null);
+
   // Fetch Sources
   const { data: sources, isLoading: isLoadingSources } = useQuery({
     queryKey: ['sources'],
@@ -206,6 +212,26 @@ export default function SourcesPage() {
     queryKey: ['vector-stores'],
     queryFn: vectorStoreService.getVectorStores,
   });
+
+  const fetchPluginSchema = async (pluginId: string) => {
+    try {
+      const schema = await pluginService.getPluginSchema(pluginId);
+      setPluginSchema(schema);
+    } catch (error) {
+      message.error('Failed to fetch plugin schema');
+      setPluginSchema(null);
+    }
+  };
+
+  const fetchVsSchema = async (vsId: string) => {
+    try {
+      const schema = await vectorStoreService.getVectorStoreSchema(vsId);
+      setVsSchema(schema);
+    } catch (error) {
+      message.error('Failed to fetch vector store schema');
+      setVsSchema(null);
+    }
+  };
 
   // Add Source Mutation
   const addSourceMutation = useMutation({
@@ -291,55 +317,24 @@ export default function SourcesPage() {
   ];
 
   const handleAddSource = (values: any) => {
-    let config = {};
+    const { name, type, ...config } = values;
     
-    if (values.type === 'local_file') {
-      config = { path: values.path, recursive: values.recursive };
-    } else if (values.type === 'mongodb') {
-      let query = {};
-      if (values.query_mode && values.query) {
+    // Handle special cases like JSON strings in config
+    Object.keys(config).forEach(key => {
+      if (typeof config[key] === 'string' && (config[key].startsWith('{') || config[key].startsWith('['))) {
         try {
-          query = JSON.parse(values.query);
+          config[key] = JSON.parse(config[key]);
         } catch (e) {
-          message.error('Invalid MongoDB Query JSON');
-          return;
+          // Keep as string if not valid JSON
         }
       }
-      config = {
-        connection_string: values.connection_string,
-        database: values.database,
-        collection: values.collection,
-        query_mode: values.query_mode,
-        query: query,
-        content_field: values.content_field,
-        metadata_fields: values.metadata_fields
-      };
-    } else if (values.type === 's3') {
-      config = {
-        bucket_name: values.bucket_name,
-        prefix: values.prefix,
-        endpoint_url: values.endpoint_url,
-        aws_access_key_id: values.aws_access_key_id,
-        aws_secret_access_key: values.aws_secret_access_key,
-        region_name: values.region_name
-      };
-    } else if (values.type === 'sql') {
-      config = {
-        connection_string: values.connection_string,
-        query: values.query,
-        content_column: values.content_column,
-        metadata_columns: values.metadata_columns
-      };
-    } else if (values.type === 'web_scraper') {
-      config = { base_url: values.base_url, max_depth: values.max_depth };
-    } else if (values.type === 'local_file') {
-      config = { path: values.path, recursive: values.recursive, extensions: values.extensions };
-    }
+    });
 
     addSourceMutation.mutate({
-      name: values.name,
-      type: values.type,
-      config: config
+      name,
+      type,
+      config,
+      status: 'active'
     });
   };
 
@@ -420,7 +415,11 @@ export default function SourcesPage() {
         title="Add New Data Source" 
         open={isModalOpen} 
         onOk={() => form.submit()} 
-        onCancel={() => setIsModalOpen(false)}
+        onCancel={() => {
+          setIsModalOpen(false);
+          setPluginSchema(null);
+          setSelectedPluginId(null);
+        }}
         confirmLoading={addSourceMutation.isPending}
       >
         <Form form={form} layout="vertical" onFinish={handleAddSource}>
@@ -428,171 +427,24 @@ export default function SourcesPage() {
             <Input placeholder="e.g. Documentation Folder" />
           </Form.Item>
           <Form.Item name="type" label="Source Type" rules={[{ required: true }]}>
-            <Select placeholder="Select a plugin">
+            <Select 
+              placeholder="Select a plugin"
+              onChange={(value) => {
+                setSelectedPluginId(value);
+                fetchPluginSchema(value);
+              }}
+            >
               {plugins?.map(plugin => (
                 <Select.Option key={plugin.id} value={plugin.id}>{plugin.name}</Select.Option>
               ))}
             </Select>
           </Form.Item>
 
-          {selectedType === 'mongodb' ? (
-            <>
-              <Form.Item label="Connection String" required>
-                <Space.Compact style={{ width: '100%' }}>
-                  <Form.Item
-                    name="connection_string"
-                    noStyle
-                    rules={[{ required: true, message: 'Connection string is required' }]}
-                  >
-                    <Input placeholder="mongodb://localhost:27017" />
-                  </Form.Item>
-                  <Button 
-                    type="primary" 
-                    onClick={handleCheckConnection}
-                    loading={isTestingConn}
-                  >
-                    Check Connection
-                  </Button>
-                </Space.Compact>
-              </Form.Item>
-              <Form.Item name="database" label="Database" rules={[{ required: true }]}>
-                <Select placeholder="Select database" loading={isTestingConn}>
-                  {databases.map(db => <Select.Option key={db} value={db}>{db}</Select.Option>)}
-                </Select>
-              </Form.Item>
-              <Form.Item name="query_mode" label="Query Mode" valuePropName="checked">
-                <Switch unCheckedChildren="Collection" checkedChildren="Custom Query" />
-              </Form.Item>
-              
-              <Form.Item name="collection" label="Collection" rules={[{ required: true }]}>
-                <Select placeholder="Select collection">
-                  {collections.map(c => <Select.Option key={c} value={c}>{c}</Select.Option>)}
-                </Select>
-              </Form.Item>
-
-              {mongoQueryMode ? (
-                <Form.Item name="query" label="MongoDB Query (JSON)" rules={[{ required: true }]}>
-                  <Input.TextArea placeholder='{"status": "active"}' rows={4} />
-                </Form.Item>
-              ) : (
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <Title level={5}>Field Selection</Title>
-                  <Text type="secondary" className="block mb-4">
-                    Select which field contains the main text and which ones should be stored as metadata.
-                  </Text>
-                  
-                  <Form.Item name="content_field" label="Content Field (Main Text)" rules={[{ required: true }]}>
-                    <Select 
-                      showSearch
-                      placeholder="Select the primary text field"
-                      options={schema.map(s => ({ label: s, value: s }))}
-                    />
-                  </Form.Item>
-
-                  <Divider />
-
-                  <Form.Item name="metadata_fields" label="Metadata Fields (Context)">
-                    <div className="border rounded bg-white p-2 max-h-64 overflow-auto">
-                      <Input 
-                        placeholder="Search fields..." 
-                        prefix={<Search size={14} />}
-                        className="mb-2"
-                        onChange={e => setTreeSearch(e.target.value)}
-                      />
-                      <Tree
-                        checkable
-                        selectable={false}
-                        treeData={treeData}
-                        checkedKeys={metadataFields || []}
-                        onCheck={(checkedKeys: any) => {
-                          form.setFieldsValue({ metadata_fields: checkedKeys });
-                        }}
-                        height={200}
-                      />
-                    </div>
-                  </Form.Item>
-                </div>
-              )}
-            </>
-          ) : selectedType === 's3' ? (
-            <>
-              <Form.Item name="bucket_name" label="Bucket Name" rules={[{ required: true }]}>
-                <Input placeholder="my-bucket" />
-              </Form.Item>
-              <Form.Item name="prefix" label="Prefix (Optional)">
-                <Input placeholder="docs/" />
-              </Form.Item>
-              <Form.Item name="endpoint_url" label="Endpoint URL (Optional, for MinIO)">
-                <Input placeholder="http://localhost:9000" />
-              </Form.Item>
-              <Form.Item name="aws_access_key_id" label="Access Key ID">
-                <Input />
-              </Form.Item>
-              <Form.Item name="aws_secret_access_key" label="Secret Access Key">
-                <Input.Password />
-              </Form.Item>
-              <Form.Item name="region_name" label="Region" initialValue="us-east-1">
-                <Input />
-              </Form.Item>
-            </>
-          ) : selectedType === 'sql' ? (
-            <>
-              <Form.Item name="connection_string" label="Connection String" rules={[{ required: true }]}>
-                <Input placeholder="postgresql://user:pass@localhost/db" />
-              </Form.Item>
-              <Form.Item name="query" label="SQL Query" rules={[{ required: true }]}>
-                <Input.TextArea placeholder="SELECT * FROM documents" rows={4} />
-              </Form.Item>
-              <Form.Item name="content_column" label="Content Column" initialValue="content">
-                <Input />
-              </Form.Item>
-              <Form.Item name="metadata_columns" label="Metadata Columns (Comma separated)">
-                <Select mode="tags" placeholder="Enter column names" />
-              </Form.Item>
-            </>
-          ) : selectedType === 'web_scraper' ? (
-            <>
-              <Form.Item name="base_url" label="Base URL" rules={[{ required: true }]}>
-                <Input placeholder="https://docs.example.com" />
-              </Form.Item>
-              <Form.Item name="max_depth" label="Max Depth" initialValue={1}>
-                <Select>
-                  <Select.Option value={0}>0 (Only this page)</Select.Option>
-                  <Select.Option value={1}>1 (One level deep)</Select.Option>
-                  <Select.Option value={2}>2 (Two levels deep)</Select.Option>
-                </Select>
-              </Form.Item>
-            </>
-          ) : selectedType === 'local_file' ? (
-            <>
-              <Form.Item name="path" label="Directory Path" rules={[{ required: true }]}>
-                <Input placeholder="/home/user/documents" />
-              </Form.Item>
-              <Form.Item name="recursive" label="Recursive Scanning" valuePropName="checked" initialValue={true}>
-                <Switch />
-              </Form.Item>
-              <Form.Item name="extensions" label="File Extensions" initialValue={['.txt', '.md', '.pdf']}>
-                <Select mode="tags" placeholder="e.g. .txt, .md" />
-              </Form.Item>
-            </>
-          ) : selectedType === 'google_drive' ? (
-            <>
-              <Form.Item name="folder_id" label="Folder ID" rules={[{ required: true }]}>
-                <Input placeholder="1a2b3c4d5e6f7g8h9i0j" />
-              </Form.Item>
-              <Form.Item name="service_account_info" label="Service Account JSON" rules={[{ required: true }]}>
-                <Input.TextArea placeholder='{"type": "service_account", ...}' rows={6} />
-              </Form.Item>
-            </>
-          ) : (
-            <>
-              <Form.Item name="path" label="Path / URL / Connection String" rules={[{ required: true }]}>
-                <Input placeholder="/path/to/docs or https://example.com" />
-              </Form.Item>
-              <Form.Item name="recursive" label="Recursive Scanning" valuePropName="checked" initialValue={true}>
-                <Switch />
-              </Form.Item>
-            </>
+          {pluginSchema && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+              <Text strong className="block mb-4">Configuration</Text>
+              <DynamicConfigForm schema={pluginSchema} />
+            </div>
           )}
         </Form>
       </Modal>
@@ -601,7 +453,11 @@ export default function SourcesPage() {
         title={`Run Ingestion: ${selectedSourceForIngest?.name}`}
         open={isIngestModalOpen}
         onOk={() => ingestForm.submit()}
-        onCancel={() => setIsIngestModalOpen(false)}
+        onCancel={() => {
+          setIsIngestModalOpen(false);
+          setVsSchema(null);
+          setSelectedVsId(null);
+        }}
         confirmLoading={ingestMutation.isPending}
         width={600}
       >
@@ -611,23 +467,28 @@ export default function SourcesPage() {
           onFinish={(values) => {
             if (!selectedSourceForIngest) return;
             const selectedModel = availableModels?.find(m => m.id === values.embedding_model_id);
+            
+            // Extract vector store config
+            const { vector_store, index_name, embedding_model_id, execution_mode, max_workers, strategy, chunk_size, chunk_overlap, separators, encoding_name, ...vs_config } = values;
+
             ingestMutation.mutate({
               plugin_id: selectedSourceForIngest.type,
               config: selectedSourceForIngest.config,
               chunk_settings: {
-                strategy: values.strategy,
-                chunk_size: values.chunk_size,
-                chunk_overlap: values.chunk_overlap,
-                separators: values.separators,
-                encoding_name: values.encoding_name
+                strategy,
+                chunk_size,
+                chunk_overlap,
+                separators,
+                encoding_name
               },
-              vector_store: values.vector_store,
-              index_name: values.index_name,
+              vector_store,
+              vector_store_config: vs_config,
+              index_name,
               embedding_model: selectedModel?.model || 'all-MiniLM-L6-v2',
               embedding_provider: selectedModel?.provider || 'huggingface',
               embedding_config: selectedModel?.config || {},
-              execution_mode: values.execution_mode,
-              max_workers: values.max_workers
+              execution_mode,
+              max_workers
             }, {
               onSuccess: () => setIsIngestModalOpen(false)
             });
@@ -635,7 +496,13 @@ export default function SourcesPage() {
         >
           <Flex gap="middle">
             <Form.Item name="vector_store" label="Vector Store" rules={[{ required: true }]} className="flex-1" initialValue="opensearch">
-              <Select placeholder="Select vector store">
+              <Select 
+                placeholder="Select vector store"
+                onChange={(value) => {
+                  setSelectedVsId(value);
+                  fetchVsSchema(value);
+                }}
+              >
                 {vectorStores?.map(vs => (
                   <Select.Option key={vs.id} value={vs.id}>{vs.name}</Select.Option>
                 ))}
@@ -645,6 +512,13 @@ export default function SourcesPage() {
               <Input placeholder="my_index" />
             </Form.Item>
           </Flex>
+
+          {vsSchema && (
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+              <Text strong className="block mb-4">Vector Store Configuration</Text>
+              <DynamicConfigForm schema={vsSchema} />
+            </div>
+          )}
 
           <Divider titlePlacement="left">Embedding & Execution</Divider>
           

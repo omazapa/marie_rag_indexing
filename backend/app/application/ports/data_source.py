@@ -20,9 +20,21 @@ class DataSourcePort(ABC):
         """Test the connection to the data source."""
         pass
 
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> Dict[str, Any]:
+        """Return the JSON schema for the plugin configuration."""
+        pass
+
     @abstractmethod
     def load_data(self) -> Generator[Document, None, None]:
         """Stream documents from the data source."""
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_config_schema() -> Dict[str, Any]:
+        """Return the JSON schema for the plugin configuration."""
         pass
 
     @property

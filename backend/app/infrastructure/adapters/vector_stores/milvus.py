@@ -9,9 +9,10 @@ class MilvusAdapter(VectorStorePort):
     Adapter for Milvus vector store.
     """
     
-    def __init__(self):
-        host = os.getenv("MILVUS_HOST", "localhost")
-        port = os.getenv("MILVUS_PORT", "19530")
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
+        host = self.config.get("host") or os.getenv("MILVUS_HOST", "localhost")
+        port = self.config.get("port") or os.getenv("MILVUS_PORT", "19530")
         connections.connect("default", host=host, port=port)
 
     def create_index(self, index_name: str, dimension: int = 384, body: Optional[Dict[str, Any]] = None):
@@ -56,9 +57,6 @@ class MilvusAdapter(VectorStorePort):
     def get_checkpoint(self, source_id: str) -> Optional[Dict[str, Any]]:
         return None
 
-    def hybrid_search(self, index_name: str, query_text: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        return self.search(index_name, query_vector, k, filters)
-
     def search(self, index_name: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         collection = Collection(index_name)
         collection.load()
@@ -85,8 +83,32 @@ class MilvusAdapter(VectorStorePort):
                     "chunk_id": hit.id
                 })
         return formatted_results
+
     def list_indices(self) -> List[Dict[str, Any]]:
-        return []
+        collections = utility.list_collections()
+        return [{"name": name, "status": "active", "documents": "N/A", "size": "N/A"} for name in collections]
 
     def delete_index(self, index_name: str) -> bool:
+        utility.drop_collection(index_name)
         return True
+
+    @staticmethod
+    def get_config_schema() -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string",
+                    "title": "Milvus Host",
+                    "description": "Host of the Milvus server",
+                    "default": "localhost"
+                },
+                "port": {
+                    "type": "string",
+                    "title": "Milvus Port",
+                    "description": "Port of the Milvus server",
+                    "default": "19530"
+                }
+            },
+            "required": ["host", "port"]
+        }
