@@ -31,6 +31,11 @@ const items = [
     label: <Link href="/models">Embedding Models</Link>,
   },
   {
+    key: 'vector-stores',
+    icon: <Database size={18} />,
+    label: <Link href="/vector-stores">Vector Stores</Link>,
+  },
+  {
     key: 'indices',
     icon: <FileText size={18} />,
     label: <Link href="/indices">Indices</Link>,

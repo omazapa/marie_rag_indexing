@@ -1,8 +1,8 @@
 from opensearchpy import OpenSearch, helpers
 from typing import List, Dict, Any, Optional
 import os
-from ...application.ports.vector_store import VectorStorePort
-from ...domain.models import Chunk
+from ....application.ports.vector_store import VectorStorePort
+from ....domain.models import Chunk
 
 class OpenSearchAdapter(VectorStorePort):
     """
@@ -57,11 +57,11 @@ class OpenSearchAdapter(VectorStorePort):
         actions = [
             {
                 "_index": index_name,
-                "_source": chunk.dict()
+                "_source": chunk.model_dump()
             }
             for chunk in chunks
         ]
-        success, failed = helpers.bulk(self.client, actions)
+        success, failed = helpers.bulk(self.client, actions, refresh=True)
         return success, failed
 
     def save_checkpoint(self, source_id: str, state: Dict[str, Any]):
@@ -93,3 +93,31 @@ class OpenSearchAdapter(VectorStorePort):
             return response["_source"]["state"]
         except Exception:
             return None
+
+    def search(self, index_name: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        query = {
+            "size": k,
+            "query": {
+                "knn": {
+                    "embedding": {
+                        "vector": query_vector,
+                        "k": k
+                    }
+                }
+            }
+        }
+        
+        if filters:
+            # Simple term filtering for now
+            filter_list = [{"term": {f"metadata.{key}": value}} for key, value in filters.items()]
+            query["query"] = {
+                "bool": {
+                    "must": [
+                        {"knn": {"embedding": {"vector": query_vector, "k": k}}}
+                    ],
+                    "filter": filter_list
+                }
+            }
+
+        response = self.client.search(index=index_name, body=query)
+        return [hit["_source"] for hit in response["hits"]["hits"]]

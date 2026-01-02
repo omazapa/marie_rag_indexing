@@ -29,6 +29,7 @@ import { assistantService } from '@/services/assistantService';
 import { LogViewer } from '@/components/LogViewer';
 import { mongodbService } from '@/services/mongodbService';
 import { modelService } from '@/services/modelService';
+import { vectorStoreService } from '@/services/vectorStoreService';
 
 const { Title, Text } = Typography;
 
@@ -195,6 +196,11 @@ export default function SourcesPage() {
   const { data: availableModels } = useQuery({
     queryKey: ['models'],
     queryFn: modelService.getModels,
+  });
+
+  const { data: vectorStores } = useQuery({
+    queryKey: ['vector-stores'],
+    queryFn: vectorStoreService.getVectorStores,
   });
 
   // Add Source Mutation
@@ -521,6 +527,15 @@ export default function SourcesPage() {
                 <Select mode="tags" placeholder="e.g. .txt, .md" />
               </Form.Item>
             </>
+          ) : selectedType === 'google_drive' ? (
+            <>
+              <Form.Item name="folder_id" label="Folder ID" rules={[{ required: true }]}>
+                <Input placeholder="1a2b3c4d5e6f7g8h9i0j" />
+              </Form.Item>
+              <Form.Item name="service_account_info" label="Service Account JSON" rules={[{ required: true }]}>
+                <Input.TextArea placeholder='{"type": "service_account", ...}' rows={6} />
+              </Form.Item>
+            </>
           ) : (
             <>
               <Form.Item name="path" label="Path / URL / Connection String" rules={[{ required: true }]}>
@@ -558,6 +573,7 @@ export default function SourcesPage() {
                 separators: values.separators,
                 encoding_name: values.encoding_name
               },
+              vector_store: values.vector_store,
               index_name: values.index_name,
               embedding_model: selectedModel?.model || 'all-MiniLM-L6-v2',
               embedding_provider: selectedModel?.provider || 'huggingface',
@@ -569,9 +585,18 @@ export default function SourcesPage() {
             });
           }}
         >
-          <Form.Item name="index_name" label="OpenSearch Index Name" rules={[{ required: true }]}>
-            <Input placeholder="my_index" />
-          </Form.Item>
+          <Flex gap="middle">
+            <Form.Item name="vector_store" label="Vector Store" rules={[{ required: true }]} className="flex-1" initialValue="opensearch">
+              <Select placeholder="Select vector store">
+                {vectorStores?.map(vs => (
+                  <Select.Option key={vs.id} value={vs.id}>{vs.name}</Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item name="index_name" label="Index Name" rules={[{ required: true }]} className="flex-1">
+              <Input placeholder="my_index" />
+            </Form.Item>
+          </Flex>
 
           <Divider titlePlacement="left">Embedding & Execution</Divider>
           

@@ -1,8 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Generator
-from ...application.ports.data_source import DataSourcePort
-from ...domain.models import Document
+from ....application.ports.data_source import DataSourcePort
+from ....domain.models import Document
 import urllib.parse
 
 class WebScraperAdapter(DataSourcePort):

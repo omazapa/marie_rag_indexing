@@ -10,6 +10,7 @@ export interface IngestionRequest {
     separators?: string[];
     encoding_name?: string;
   };
+  vector_store: string;
   index_name: string;
   embedding_model: string;
   embedding_provider: string;

@@ -10,8 +10,13 @@ from .infrastructure.adapters.data_sources.mongodb import MongoDBAdapter
 from .infrastructure.adapters.data_sources.s3 import S3Adapter
 from .infrastructure.adapters.data_sources.sql import SQLAdapter
 from .infrastructure.adapters.data_sources.web_scraper import WebScraperAdapter
+from .infrastructure.adapters.data_sources.google_drive import GoogleDriveAdapter
 
 from .infrastructure.adapters.vector_stores.opensearch import OpenSearchAdapter
+from .infrastructure.adapters.vector_stores.pinecone import PineconeAdapter
+from .infrastructure.adapters.vector_stores.qdrant import QdrantAdapter
+from .infrastructure.adapters.vector_stores.milvus import MilvusAdapter
+from .infrastructure.adapters.vector_stores.pgvector import PGVectorAdapter
 from .application.services.orchestrator import IngestionOrchestrator
 from .application.services.chunking import ChunkConfig
 from .infrastructure.logging.log_manager import log_manager, stream_logs
@@ -48,7 +53,20 @@ def create_app():
                 {"id": "s3", "name": "S3 / MinIO"},
                 {"id": "mongodb", "name": "MongoDB"},
                 {"id": "sql", "name": "SQL Database"},
-                {"id": "web_scraper", "name": "Web Scraper"}
+                {"id": "web_scraper", "name": "Web Scraper"},
+                {"id": "google_drive", "name": "Google Drive"}
+            ]
+        }), 200
+
+    @app.route('/api/v1/vector_stores', methods=['GET'])
+    def list_vector_stores():
+        return jsonify({
+            "vector_stores": [
+                {"id": "opensearch", "name": "OpenSearch"},
+                {"id": "pinecone", "name": "Pinecone"},
+                {"id": "qdrant", "name": "Qdrant"},
+                {"id": "milvus", "name": "Milvus"},
+                {"id": "pgvector", "name": "PostgreSQL (pgvector)"}
             ]
         }), 200
 
@@ -220,6 +238,7 @@ def create_app():
         plugin_id = data.get("plugin_id")
         config = data.get("config", {})
         chunk_settings = data.get("chunk_settings", {})
+        vector_store_id = data.get("vector_store", "opensearch")
         index_name = data.get("index_name", "default_index")
         embedding_model = data.get("embedding_model", "all-MiniLM-L6-v2")
         embedding_provider = data.get("embedding_provider", "huggingface")
@@ -227,7 +246,7 @@ def create_app():
         execution_mode = data.get("execution_mode", "sequential")
         max_workers = data.get("max_workers", 4)
 
-        # Adapter Selection
+        # Data Source Adapter Selection
         if plugin_id == "local_file":
             data_source = LocalFileAdapter(config)
         elif plugin_id == "s3":
@@ -238,11 +257,24 @@ def create_app():
             data_source = SQLAdapter(config)
         elif plugin_id == "web_scraper":
             data_source = WebScraperAdapter(config)
+        elif plugin_id == "google_drive":
+            data_source = GoogleDriveAdapter(config)
         else:
-            return jsonify({"status": "error", "message": f"Plugin {plugin_id} not supported yet in hexagonal structure"}), 400
+            return jsonify({"status": "error", "message": f"Plugin {plugin_id} not supported"}), 400
 
-        # Vector Store Selection (Default to OpenSearch for now)
-        vector_store = OpenSearchAdapter()
+        # Vector Store Adapter Selection
+        if vector_store_id == "opensearch":
+            vector_store = OpenSearchAdapter()
+        elif vector_store_id == "pinecone":
+            vector_store = PineconeAdapter()
+        elif vector_store_id == "qdrant":
+            vector_store = QdrantAdapter()
+        elif vector_store_id == "milvus":
+            vector_store = MilvusAdapter()
+        elif vector_store_id == "pgvector":
+            vector_store = PGVectorAdapter()
+        else:
+            return jsonify({"status": "error", "message": f"Vector store {vector_store_id} not supported"}), 400
 
         chunk_config = ChunkConfig(**chunk_settings)
         orchestrator = IngestionOrchestrator(
@@ -261,7 +293,7 @@ def create_app():
         thread = threading.Thread(target=orchestrator.run)
         thread.start()
         
-        return jsonify({"status": "success", "message": "Ingestion started"}), 200
+        return jsonify({"status": "success", "message": "Ingestion started", "vector_store": vector_store_id}), 200
 
     return app
 

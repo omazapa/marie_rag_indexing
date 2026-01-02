@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, text
 from typing import List, Dict, Any, Generator
-from ...application.ports.data_source import DataSourcePort
-from ...domain.models import Document
+from ....application.ports.data_source import DataSourcePort
+from ....domain.models import Document
 
 class SQLAdapter(DataSourcePort):
     """

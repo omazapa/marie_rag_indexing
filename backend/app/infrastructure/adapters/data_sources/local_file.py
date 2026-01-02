@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict, Generator
-from ...application.ports.data_source import DataSourcePort
-from ...domain.models import Document
+from ....application.ports.data_source import DataSourcePort
+from ....domain.models import Document
 
 class LocalFileAdapter(DataSourcePort):
     """

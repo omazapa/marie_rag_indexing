@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 from typing import List, Dict, Any, Generator
-from ...application.ports.data_source import DataSourcePort
-from ...domain.models import Document
+from ....application.ports.data_source import DataSourcePort
+from ....domain.models import Document
 
 class MongoDBAdapter(DataSourcePort):
     """

@@ -1,8 +1,8 @@
 import boto3
 import os
 from typing import List, Dict, Any, Generator
-from ...application.ports.data_source import DataSourcePort
-from ...domain.models import Document
+from ....application.ports.data_source import DataSourcePort
+from ....domain.models import Document
 
 class S3Adapter(DataSourcePort):
     """
