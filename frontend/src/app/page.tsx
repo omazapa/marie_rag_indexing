@@ -38,7 +38,7 @@ export default function Dashboard() {
         variant="borderless"
         icon={<Image src={BRAND_CONFIG.logoIcon} alt="Marie" width={64} height={64} />}
         title={`Welcome to ${BRAND_CONFIG.name}`}
-        description="Your modular system for indexing data from various sources into OpenSearch for RAG applications. Start by adding a data source or managing your indices."
+        description="Your modular system for indexing data from various sources into your preferred Vector Store for RAG applications. Start by adding a data source or managing your indices."
         extra={
           <Space>
             <Button type="primary" icon={<Plus size={16} />}>New Source</Button>
