@@ -31,3 +31,18 @@ class VectorStorePort(ABC):
     def search(self, index_name: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Performs a vector search in the index."""
         pass
+
+    @abstractmethod
+    def hybrid_search(self, index_name: str, query_text: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Performs a hybrid search (k-NN + BM25) in the index."""
+        pass
+
+    @abstractmethod
+    def list_indices(self) -> List[Dict[str, Any]]:
+        """Lists all indices/collections in the vector store."""
+        pass
+
+    @abstractmethod
+    def delete_index(self, index_name: str) -> bool:
+        """Deletes an index/collection."""
+        pass

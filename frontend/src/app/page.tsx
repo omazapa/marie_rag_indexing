@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Row, Col, Card, Statistic, Typography, Tag, Spin, Flex, Divider, Button } from 'antd';
+import { Row, Col, Card, Statistic, Typography, Tag, Spin, Flex, Divider, Button, Space } from 'antd';
 import { 
   Database, 
   FileText, 
@@ -13,7 +13,7 @@ import {
   Search,
   Zap
 } from 'lucide-react';
-import { Welcome, Express } from '@ant-design/x';
+import { Welcome, Prompts } from '@ant-design/x';
 import { useQuery } from '@tanstack/react-query';
 import { statsService } from '@/services/statsService';
 import { BRAND_CONFIG } from '@/core/branding';
@@ -47,29 +47,38 @@ export default function Dashboard() {
         }
       />
 
-      <Express
-        title="Quick Actions"
-        items={[
-          {
-            key: '1',
-            icon: <Zap size={16} className="text-orange-500" />,
-            label: 'Run Ingestion',
-            description: 'Start a new indexing job',
-          },
-          {
-            key: '2',
-            icon: <Database size={16} className="text-blue-500" />,
-            label: 'Add MongoDB',
-            description: 'Connect a new MongoDB collection',
-          },
-          {
-            key: '3',
-            icon: <FileText size={16} className="text-purple-500" />,
-            label: 'View Indices',
-            description: 'Manage your vector stores',
-          },
-        ]}
-      />
+      <div className="space-y-4">
+        <Title level={4}>Quick Actions</Title>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={8}>
+            <Card hoverable className="shadow-sm border-none bg-blue-50">
+              <Space direction="vertical">
+                <Zap size={24} className="text-blue-500" />
+                <Text strong>Run Ingestion</Text>
+                <Text type="secondary">Start a new indexing job</Text>
+              </Space>
+            </Card>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Card hoverable className="shadow-sm border-none bg-green-50">
+              <Space direction="vertical">
+                <Database size={24} className="text-green-500" />
+                <Text strong>Add MongoDB</Text>
+                <Text type="secondary">Connect a new collection</Text>
+              </Space>
+            </Card>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Card hoverable className="shadow-sm border-none bg-purple-50">
+              <Space direction="vertical">
+                <FileText size={24} className="text-purple-500" />
+                <Text strong>View Indices</Text>
+                <Text type="secondary">Manage your vector stores</Text>
+              </Space>
+            </Card>
+          </Col>
+        </Row>
+      </div>
       
       <Divider />
 
@@ -132,7 +141,7 @@ export default function Dashboard() {
                         <div style={{ marginBottom: 4 }}>
                           <Text strong>{item.source}</Text>
                         </div>
-                        <Text type="secondary" size="small">
+                        <Text type="secondary">
                           Job ID: {item.id} • 
                           <Tag className="ml-2" color={item.status === 'completed' ? 'green' : item.status === 'failed' ? 'red' : 'blue'}>
                             {item.status.toUpperCase()}

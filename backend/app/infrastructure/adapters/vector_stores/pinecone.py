@@ -88,3 +88,15 @@ class PineconeAdapter(VectorStorePort):
                 "chunk_id": match['id']
             })
         return formatted_results
+
+    def hybrid_search(self, index_name: str, query_text: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        # Pinecone supports hybrid search with sparse-dense vectors, but for now fallback to vector search
+        return self.search(index_name, query_vector, k, filters)
+
+    def list_indices(self) -> List[Dict[str, Any]]:
+        indexes = self.pc.list_indexes().names()
+        return [{"name": name, "status": "active", "documents": "N/A", "size": "N/A"} for name in indexes]
+
+    def delete_index(self, index_name: str) -> bool:
+        self.pc.delete_index(index_name)
+        return True

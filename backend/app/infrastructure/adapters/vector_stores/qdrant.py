@@ -52,6 +52,9 @@ class QdrantAdapter(VectorStorePort):
     def get_checkpoint(self, source_id: str) -> Optional[Dict[str, Any]]:
         return None
 
+    def hybrid_search(self, index_name: str, query_text: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        return self.search(index_name, query_vector, k, filters)
+
     def search(self, index_name: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         search_result = self.client.search(
             collection_name=index_name,
@@ -70,3 +73,8 @@ class QdrantAdapter(VectorStorePort):
                 "chunk_id": str(hit.id)
             })
         return formatted_results
+    def list_indices(self) -> List[Dict[str, Any]]:
+        return []
+
+    def delete_index(self, index_name: str) -> bool:
+        return True

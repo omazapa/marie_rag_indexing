@@ -585,6 +585,7 @@
 
 ### Development Approach
 
+- **Always verify the current working directory before executing terminal commands.**
 - Clean, maintainable, and scalable code
 - Modern best practices and design patterns
 - Performance-first mindset

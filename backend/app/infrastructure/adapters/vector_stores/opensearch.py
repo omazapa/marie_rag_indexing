@@ -121,3 +121,63 @@ class OpenSearchAdapter(VectorStorePort):
 
         response = self.client.search(index=index_name, body=query)
         return [hit["_source"] for hit in response["hits"]["hits"]]
+
+    def hybrid_search(self, index_name: str, query_text: str, query_vector: List[float], k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        query = {
+            "size": k,
+            "query": {
+                "bool": {
+                    "should": [
+                        {
+                            "knn": {
+                                "embedding": {
+                                    "vector": query_vector,
+                                    "k": k,
+                                    "boost": 0.7
+                                }
+                            }
+                        },
+                        {
+                            "match": {
+                                "content": {
+                                    "query": query_text,
+                                    "boost": 0.3
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        
+        if filters:
+            filter_list = [{"term": {f"metadata.{key}": value}} for key, value in filters.items()]
+            query["query"]["bool"]["filter"] = filter_list
+
+        response = self.client.search(index=index_name, body=query)
+        return [hit["_source"] for hit in response["hits"]["hits"]]
+
+    def list_indices(self) -> List[Dict[str, Any]]:
+        indices = self.client.indices.get_alias().keys()
+        result = []
+        for index in indices:
+            if index.startswith('.') or index == "ingestion_checkpoints":
+                continue
+            
+            stats = self.client.indices.stats(index=index)
+            count = stats['_all']['primaries']['docs']['count']
+            size_bytes = stats['_all']['primaries']['store']['size_in_bytes']
+            
+            result.append({
+                "name": index,
+                "documents": count,
+                "size": f"{size_bytes / 1024 / 1024:.2f} MB",
+                "status": "active"
+            })
+        return result
+
+    def delete_index(self, index_name: str) -> bool:
+        if self.client.indices.exists(index=index_name):
+            self.client.indices.delete(index=index_name)
+            return True
+        return False

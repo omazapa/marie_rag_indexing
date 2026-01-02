@@ -133,7 +133,7 @@ export default function SettingsPage() {
 
           <Card variant="borderless" className="shadow-sm bg-purple-50">
             <Title level={5} style={{ color: BRAND_CONFIG.primaryColor }}>Pro Tip</Title>
-            <Text size="small">
+            <Text>
               You can customize the entire look and feel of the platform to match your corporate identity. 
               Changes here will reflect across all user interfaces.
             </Text>

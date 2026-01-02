@@ -16,11 +16,13 @@ import {
   Spin,
   Divider,
   Flex,
-  AutoComplete
+  AutoComplete,
+  Breadcrumb
 } from 'antd';
 import { Plus, Trash2, Cpu, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { modelService, EmbeddingModel } from '@/services/modelService';
+import Link from 'next/link';
 
 const { Title, Text } = Typography;
 

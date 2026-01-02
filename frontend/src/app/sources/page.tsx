@@ -18,11 +18,12 @@ import {
   Tree,
   Divider,
   InputNumber,
-  Flex
+  Flex,
+  Breadcrumb
 } from 'antd';
 import { Plus, Play, Settings, Trash2, Search, Bot, Database as DbIcon, Globe, FileCode, Folder } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Welcome, Express } from '@ant-design/x';
+import { Welcome } from '@ant-design/x';
 import { sourceService, DataSource } from '@/services/sourceService';
 import { pluginService } from '@/services/pluginService';
 import { ingestionService } from '@/services/ingestionService';
@@ -374,38 +375,38 @@ export default function SourcesPage() {
         </Space>
       </div>
 
-      <Express
-        title="Quick Connect"
-        items={[
-          {
-            key: 'local',
-            icon: <Folder size={16} className="text-blue-500" />,
-            label: 'Local Files',
-            onClick: () => {
+      <div className="space-y-4">
+        <Title level={4}>Quick Connect</Title>
+        <Flex gap="middle" wrap="wrap">
+          <Button 
+            icon={<Folder size={16} className="text-blue-500" />} 
+            onClick={() => {
               setIsModalOpen(true);
               form.setFieldsValue({ type: 'local_file' });
-            }
-          },
-          {
-            key: 'mongo',
-            icon: <DbIcon size={16} className="text-green-500" />,
-            label: 'MongoDB',
-            onClick: () => {
+            }}
+          >
+            Local Files
+          </Button>
+          <Button 
+            icon={<DbIcon size={16} className="text-green-500" />} 
+            onClick={() => {
               setIsModalOpen(true);
               form.setFieldsValue({ type: 'mongodb' });
-            }
-          },
-          {
-            key: 'web',
-            icon: <Globe size={16} className="text-orange-500" />,
-            label: 'Web Scraper',
-            onClick: () => {
+            }}
+          >
+            MongoDB
+          </Button>
+          <Button 
+            icon={<Globe size={16} className="text-orange-500" />} 
+            onClick={() => {
               setIsModalOpen(true);
               form.setFieldsValue({ type: 'web_scraper' });
-            }
-          },
-        ]}
-      />
+            }}
+          >
+            Web Scraper
+          </Button>
+        </Flex>
+      </div>
 
       <Card variant="borderless" className="shadow-sm">
         <Table columns={columns} dataSource={sources} rowKey="id" />
@@ -729,7 +730,7 @@ export default function SourcesPage() {
             value={assistantPrompt}
             onChange={(e) => setAssistantPrompt(e.target.value)}
           />
-          <Text type="secondary" size="small">
+          <Text type="secondary">
             Note: This uses the configured Ollama model to process your request.
           </Text>
         </div>

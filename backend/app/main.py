@@ -70,6 +70,40 @@ def create_app():
             ]
         }), 200
 
+    @app.route('/api/v1/indices', methods=['GET'])
+    def list_indices():
+        vector_store_id = request.args.get("vector_store", "opensearch")
+        
+        if vector_store_id == "opensearch":
+            adapter = OpenSearchAdapter()
+        elif vector_store_id == "pinecone":
+            adapter = PineconeAdapter()
+        else:
+            return jsonify({"indices": []}), 200
+            
+        try:
+            indices = adapter.list_indices()
+            return jsonify({"indices": indices}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/v1/indices/<index_name>', methods=['DELETE'])
+    def delete_index(index_name):
+        vector_store_id = request.args.get("vector_store", "opensearch")
+        
+        if vector_store_id == "opensearch":
+            adapter = OpenSearchAdapter()
+        elif vector_store_id == "pinecone":
+            adapter = PineconeAdapter()
+        else:
+            return jsonify({"error": "Unsupported vector store"}), 400
+            
+        try:
+            adapter.delete_index(index_name)
+            return jsonify({"status": "success"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     @app.route('/api/v1/mongodb/databases', methods=['GET'])
     def get_mongodb_databases():
         conn_str = request.args.get("connection_string")
