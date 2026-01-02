@@ -20,8 +20,9 @@ import {
   InputNumber,
   Flex
 } from 'antd';
-import { Plus, Play, Settings, Trash2, Search, Bot } from 'lucide-react';
+import { Plus, Play, Settings, Trash2, Search, Bot, Database as DbIcon, Globe, FileCode, Folder } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Welcome, Express } from '@ant-design/x';
 import { sourceService, DataSource } from '@/services/sourceService';
 import { pluginService } from '@/services/pluginService';
 import { ingestionService } from '@/services/ingestionService';
@@ -30,6 +31,8 @@ import { LogViewer } from '@/components/LogViewer';
 import { mongodbService } from '@/services/mongodbService';
 import { modelService } from '@/services/modelService';
 import { vectorStoreService } from '@/services/vectorStoreService';
+import { BRAND_CONFIG } from '@/core/branding';
+import Link from 'next/link';
 
 const { Title, Text } = Typography;
 
@@ -344,15 +347,26 @@ export default function SourcesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <Title level={2}>Data Sources</Title>
+    <div className="space-y-8">
+      <Breadcrumb
+        items={[
+          { title: <Link href="/">Dashboard</Link> },
+          { title: 'Data Sources' },
+        ]}
+      />
+
+      <div className="flex justify-between items-end">
+        <div>
+          <Title level={2}>Data Sources</Title>
+          <Text type="secondary">Connect and manage your data origins for the RAG pipeline.</Text>
+        </div>
         <Space>
           <Button 
             icon={<Bot size={16} />} 
             onClick={() => setIsAssistantModalOpen(true)}
+            className="border-purple-200 text-purple-600 hover:text-purple-700 hover:border-purple-300"
           >
-            Assistant
+            AI Assistant
           </Button>
           <Button type="primary" icon={<Plus size={16} />} onClick={() => setIsModalOpen(true)}>
             Add Source
@@ -360,7 +374,40 @@ export default function SourcesPage() {
         </Space>
       </div>
 
-      <Card>
+      <Express
+        title="Quick Connect"
+        items={[
+          {
+            key: 'local',
+            icon: <Folder size={16} className="text-blue-500" />,
+            label: 'Local Files',
+            onClick: () => {
+              setIsModalOpen(true);
+              form.setFieldsValue({ type: 'local_file' });
+            }
+          },
+          {
+            key: 'mongo',
+            icon: <DbIcon size={16} className="text-green-500" />,
+            label: 'MongoDB',
+            onClick: () => {
+              setIsModalOpen(true);
+              form.setFieldsValue({ type: 'mongodb' });
+            }
+          },
+          {
+            key: 'web',
+            icon: <Globe size={16} className="text-orange-500" />,
+            label: 'Web Scraper',
+            onClick: () => {
+              setIsModalOpen(true);
+              form.setFieldsValue({ type: 'web_scraper' });
+            }
+          },
+        ]}
+      />
+
+      <Card variant="borderless" className="shadow-sm">
         <Table columns={columns} dataSource={sources} rowKey="id" />
       </Card>
 

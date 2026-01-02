@@ -1,17 +1,23 @@
 'use client';
 
 import React from 'react';
-import { Row, Col, Card, Statistic, Typography, Tag, Spin, Flex, Divider } from 'antd';
+import { Row, Col, Card, Statistic, Typography, Tag, Spin, Flex, Divider, Button } from 'antd';
 import { 
   Database, 
   FileText, 
   Activity, 
   CheckCircle2, 
   AlertCircle,
-  Clock
+  Clock,
+  Plus,
+  Search,
+  Zap
 } from 'lucide-react';
+import { Welcome, Express } from '@ant-design/x';
 import { useQuery } from '@tanstack/react-query';
 import { statsService } from '@/services/statsService';
+import { BRAND_CONFIG } from '@/core/branding';
+import Image from 'next/image';
 
 const { Title, Text } = Typography;
 
@@ -27,10 +33,47 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <Title level={2}>Dashboard Overview</Title>
+    <div className="space-y-8">
+      <Welcome
+        variant="borderless"
+        icon={<Image src={BRAND_CONFIG.logoIcon} alt="Marie" width={64} height={64} />}
+        title={`Welcome to ${BRAND_CONFIG.name}`}
+        description="Your modular system for indexing data from various sources into OpenSearch for RAG applications. Start by adding a data source or managing your indices."
+        extra={
+          <Space>
+            <Button type="primary" icon={<Plus size={16} />}>New Source</Button>
+            <Button icon={<Search size={16} />}>Search Indices</Button>
+          </Space>
+        }
+      />
+
+      <Express
+        title="Quick Actions"
+        items={[
+          {
+            key: '1',
+            icon: <Zap size={16} className="text-orange-500" />,
+            label: 'Run Ingestion',
+            description: 'Start a new indexing job',
+          },
+          {
+            key: '2',
+            icon: <Database size={16} className="text-blue-500" />,
+            label: 'Add MongoDB',
+            description: 'Connect a new MongoDB collection',
+          },
+          {
+            key: '3',
+            icon: <FileText size={16} className="text-purple-500" />,
+            label: 'View Indices',
+            description: 'Manage your vector stores',
+          },
+        ]}
+      />
       
-      <Row gutter={[16, 16]}>
+      <Divider />
+
+      <Row gutter={[24, 24]}>
         <Col xs={24} sm={12} lg={6}>
           <Card variant="borderless" className="shadow-sm">
             <Statistic

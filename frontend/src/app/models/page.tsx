@@ -151,14 +151,24 @@ export default function ModelsPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb
+        items={[
+          { title: <Link href="/">Dashboard</Link> },
+          { title: 'Embedding Models' },
+        ]}
+      />
+
       <div className="flex justify-between items-center">
-        <Title level={2}>Embedding Models</Title>
+        <div>
+          <Title level={2}>Embedding Models</Title>
+          <Text type="secondary">Manage local and remote embedding models for vectorization.</Text>
+        </div>
         <Button type="primary" icon={<Plus size={16} />} onClick={() => setIsModalOpen(true)}>
           Add Model
         </Button>
       </div>
 
-      <Card>
+      <Card variant="borderless" className="shadow-sm">
         <Table columns={columns} dataSource={models} rowKey="id" />
       </Card>
 

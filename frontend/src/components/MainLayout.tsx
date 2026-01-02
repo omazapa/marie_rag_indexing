@@ -8,9 +8,12 @@ import {
   Settings, 
   Activity,
   FileText,
-  Cpu
+  Cpu,
+  Menu as MenuIcon
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { BRAND_CONFIG } from '@/core/branding';
 
 const { Header, Content, Sider } = Layout;
 
@@ -59,16 +62,45 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider breakpoint="lg" collapsedWidth="0">
-        <div className="p-4 text-white font-bold text-xl flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">M</div>
-          Marie RAG Indexing
+      <Sider 
+        breakpoint="lg" 
+        collapsedWidth="0"
+        theme="light"
+        className="border-r border-gray-100"
+        width={260}
+      >
+        <div className="p-6 flex items-center gap-3">
+          <Image 
+            src={BRAND_CONFIG.logoIcon} 
+            alt="Logo" 
+            width={32} 
+            height={32} 
+            className="rounded-lg"
+          />
+          <span className="font-bold text-lg tracking-tight text-gray-800">
+            {BRAND_CONFIG.name.split(' ')[0]} <span style={{ color: BRAND_CONFIG.primaryColor }}>{BRAND_CONFIG.name.split(' ').slice(1).join(' ')}</span>
+          </span>
         </div>
-        <Menu theme="dark" mode="inline" defaultSelectedKeys={['dashboard']} items={items} />
+        <Menu 
+          mode="inline" 
+          defaultSelectedKeys={['dashboard']} 
+          items={items} 
+          className="border-none"
+        />
       </Sider>
       <Layout>
-        <Header style={{ padding: 0, background: colorBgContainer }} />
-        <Content style={{ margin: '24px 16px 0' }}>
+        <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} className="border-b border-gray-100">
+          <div className="flex items-center gap-2 text-gray-500">
+            <MenuIcon size={20} />
+            <span className="text-sm font-medium">Workspace / Default</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs">
+              OZ
+            </div>
+          </div>
+        </Header>
+        <Content style={{ margin: '24px 24px 0' }}>
           <div
             style={{
               padding: 24,

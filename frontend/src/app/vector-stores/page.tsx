@@ -77,7 +77,7 @@ export default function VectorStoresPage() {
         </Button>
       </div>
 
-      <Card>
+      <Card variant="borderless" className="shadow-sm">
         <Table 
           columns={columns} 
           dataSource={vectorStores} 

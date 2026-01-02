@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import MainLayout from "@/components/MainLayout";
 import Providers from "@/components/Providers";
+import { BRAND_CONFIG } from "@/core/branding";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Marie RAG Indexing",
-  description: "Modular RAG Indexing System",
+  title: BRAND_CONFIG.name,
+  description: `Modular RAG Indexing System - ${BRAND_CONFIG.companyName}`,
 };
 
 export default function RootLayout({
