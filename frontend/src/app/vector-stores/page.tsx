@@ -1,12 +1,11 @@
 'use client';
 
 import React from 'react';
-import { 
-  Table, 
-  Card, 
-  Typography, 
-  Tag, 
-  App,
+import {
+  Table,
+  Card,
+  Typography,
+  Tag,
   Space,
   Button,
   Breadcrumb
@@ -66,7 +65,7 @@ export default function VectorStoresPage() {
           { title: 'Vector Stores' },
         ]}
       />
-      
+
       <div className="flex justify-between items-center">
         <div>
           <Title level={2}>Vector Stores</Title>
@@ -78,9 +77,9 @@ export default function VectorStoresPage() {
       </div>
 
       <Card variant="borderless" className="shadow-sm">
-        <Table 
-          columns={columns} 
-          dataSource={vectorStores} 
+        <Table
+          columns={columns}
+          dataSource={vectorStores}
           loading={isLoading}
           rowKey="id"
           pagination={false}

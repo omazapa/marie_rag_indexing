@@ -1,7 +1,10 @@
 import os
-from typing import Any, Dict, Generator
+from collections.abc import Generator
+from typing import Any
+
 from ....application.ports.data_source import DataSourcePort
 from ....domain.models import Document
+
 
 class LocalFileAdapter(DataSourcePort):
     """
@@ -26,7 +29,31 @@ class LocalFileAdapter(DataSourcePort):
         return self.validate_config()
 
     @staticmethod
-    def get_config_schema() -> Dict[str, Any]:
+    def get_config_schema() -> dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "title": "Path",
+                    "description": "Local directory path",
+                },
+                "recursive": {
+                    "type": "boolean",
+                    "title": "Recursive",
+                    "description": "Scan subdirectories",
+                    "default": True,
+                },
+                "extensions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "title": "Extensions",
+                    "description": "File extensions to include",
+                    "default": [".txt", ".md", ".pdf"],
+                },
+            },
+            "required": ["path"],
+        }
         return {
             "type": "object",
             "properties": {
@@ -34,27 +61,30 @@ class LocalFileAdapter(DataSourcePort):
                     "type": "string",
                     "title": "Directory Path",
                     "description": "Absolute or relative path to the directory",
-                    "default": "./docs"
+                    "default": "./docs",
                 },
                 "recursive": {
                     "type": "boolean",
                     "title": "Recursive Search",
                     "description": "Search in subdirectories",
-                    "default": True
+                    "default": True,
                 },
                 "extensions": {
                     "type": "array",
                     "title": "File Extensions",
                     "description": "List of extensions to include",
                     "items": {"type": "string"},
-                    "default": [".txt", ".md", ".pdf"]
-                }
+                    "default": [".txt", ".md", ".pdf"],
+                },
             },
-            "required": ["path"]
+            "required": ["path"],
         }
 
     def load_data(self) -> Generator[Document, None, None]:
         base_path = self.config.get("path")
+        if not base_path:
+            return
+
         recursive = self.config.get("recursive", True)
         extensions = self.config.get("extensions", [".txt", ".md", ".pdf"])
 
@@ -71,15 +101,15 @@ class LocalFileAdapter(DataSourcePort):
                     yield self._process_file(file_path)
 
     def _process_file(self, file_path: str) -> Document:
-        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+        with open(file_path, encoding="utf-8", errors="ignore") as f:
             content = f.read()
-        
+
         return Document(
             content=content,
             metadata={
                 "file_path": file_path,
                 "file_name": os.path.basename(file_path),
-                "extension": os.path.splitext(file_path)[1]
+                "extension": os.path.splitext(file_path)[1],
             },
-            source_id=self.plugin_id
+            source_id=self.plugin_id,
         )

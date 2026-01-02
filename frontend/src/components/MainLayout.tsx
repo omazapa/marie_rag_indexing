@@ -2,10 +2,10 @@
 
 import React from 'react';
 import { Layout, Menu, theme } from 'antd';
-import { 
-  LayoutDashboard, 
-  Database, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Database,
+  Settings,
   Activity,
   FileText,
   Cpu,
@@ -62,29 +62,29 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider 
-        breakpoint="lg" 
+      <Sider
+        breakpoint="lg"
         collapsedWidth="0"
         theme="light"
         className="border-r border-gray-100"
         width={260}
       >
         <div className="p-6 flex items-center gap-3">
-          <Image 
-            src={BRAND_CONFIG.logoIcon} 
-            alt="Logo" 
-            width={32} 
-            height={32} 
+          <Image
+            src={BRAND_CONFIG.logoIcon}
+            alt="Logo"
+            width={32}
+            height={32}
             className="rounded-lg"
           />
           <span className="font-bold text-lg tracking-tight text-gray-800">
             {BRAND_CONFIG.name.split(' ')[0]} <span style={{ color: BRAND_CONFIG.primaryColor }}>{BRAND_CONFIG.name.split(' ').slice(1).join(' ')}</span>
           </span>
         </div>
-        <Menu 
-          mode="inline" 
-          defaultSelectedKeys={['dashboard']} 
-          items={items} 
+        <Menu
+          mode="inline"
+          defaultSelectedKeys={['dashboard']}
+          items={items}
           className="border-none"
         />
       </Sider>

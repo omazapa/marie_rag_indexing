@@ -1,13 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generator
+from collections.abc import Generator
+from typing import Any
+
 from ...domain.models import Document
+
 
 class DataSourcePort(ABC):
     """
     Port for all data source adapters.
     """
-    
-    def __init__(self, config: Dict[str, Any]):
+
+    def __init__(self, config: dict[str, Any]):
         self.config = config
 
     @abstractmethod
@@ -22,19 +25,13 @@ class DataSourcePort(ABC):
 
     @staticmethod
     @abstractmethod
-    def get_config_schema() -> Dict[str, Any]:
+    def get_config_schema() -> dict[str, Any]:
         """Return the JSON schema for the plugin configuration."""
         pass
 
     @abstractmethod
     def load_data(self) -> Generator[Document, None, None]:
         """Stream documents from the data source."""
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def get_config_schema() -> Dict[str, Any]:
-        """Return the JSON schema for the plugin configuration."""
         pass
 
     @property

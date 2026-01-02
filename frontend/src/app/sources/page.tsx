@@ -1,65 +1,37 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Table, 
-  Button, 
-  Space, 
-  Card, 
-  Typography, 
-  Tag, 
-  Modal, 
-  Form, 
-  Input, 
-  Select, 
-  Switch,
+import {
+  Table,
+  Button,
+  Space,
+  Card,
+  Typography,
+  Tag,
+  Modal,
+  Form,
+  Input,
+  Select,
   App,
   Spin,
-  Tree,
   Divider,
   InputNumber,
-  Flex,
-  Breadcrumb
+  Breadcrumb,
+  Flex
 } from 'antd';
-import { Plus, Play, Settings, Trash2, Search, Bot, Database as DbIcon, Globe, FileCode, Folder } from 'lucide-react';
+import { Plus, Play, Settings, Trash2, Bot, Database as DbIcon, Globe, Folder } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Welcome } from '@ant-design/x';
 import { sourceService, DataSource } from '@/services/sourceService';
 import { pluginService, ConfigSchema } from '@/services/pluginService';
 import { ingestionService } from '@/services/ingestionService';
 import { assistantService } from '@/services/assistantService';
 import { LogViewer } from '@/components/LogViewer';
-import { mongodbService } from '@/services/mongodbService';
 import { modelService } from '@/services/modelService';
 import { vectorStoreService } from '@/services/vectorStoreService';
-import { BRAND_CONFIG } from '@/core/branding';
 import { DynamicConfigForm } from '@/components/DynamicConfigForm';
 import Link from 'next/link';
 
 const { Title, Text } = Typography;
-
-// Helper to convert flat paths to Tree data
-const buildTreeData = (paths: string[]) => {
-  const root: any[] = [];
-  paths.forEach(path => {
-    const parts = path.split('.');
-    let currentLevel = root;
-    parts.forEach((part, index) => {
-      const existingPath = parts.slice(0, index + 1).join('.');
-      let node = currentLevel.find(n => n.key === existingPath);
-      if (!node) {
-        node = {
-          title: part,
-          key: existingPath,
-          children: [],
-        };
-        currentLevel.push(node);
-      }
-      currentLevel = node.children;
-    });
-  });
-  return root;
-};
 
 export default function SourcesPage() {
   const { message } = App.useApp();
@@ -72,39 +44,8 @@ export default function SourcesPage() {
   const [selectedSourceForIngest, setSelectedSourceForIngest] = useState<DataSource | null>(null);
   const [form] = Form.useForm();
   const [ingestForm] = Form.useForm();
-  const selectedType = Form.useWatch('type', form);
   const chunkStrategy = Form.useWatch('strategy', ingestForm);
   const executionMode = Form.useWatch('execution_mode', ingestForm);
-  const mongoConnStr = Form.useWatch('connection_string', form);
-  const mongoDb = Form.useWatch('database', form);
-  const mongoColl = Form.useWatch('collection', form);
-  const mongoQueryMode = Form.useWatch('query_mode', form);
-  const metadataFields = Form.useWatch('metadata_fields', form);
-
-  const [databases, setDatabases] = useState<string[]>([]);
-  const [collections, setCollections] = useState<string[]>([]);
-  const [schema, setSchema] = useState<string[]>([]);
-  const [isTestingConn, setIsTestingConn] = useState(false);
-  const [treeSearch, setTreeSearch] = useState('');
-
-  const treeData = React.useMemo(() => {
-    const data = buildTreeData(schema);
-    if (!treeSearch) return data;
-    
-    const filterTree = (nodes: any[]): any[] => {
-      return nodes
-        .map(node => ({ ...node }))
-        .filter(node => {
-          if (node.key.toLowerCase().includes(treeSearch.toLowerCase())) return true;
-          if (node.children) {
-            node.children = filterTree(node.children);
-            return node.children.length > 0;
-          }
-          return false;
-        });
-    };
-    return filterTree(data);
-  }, [schema, treeSearch]);
 
   const handleAssistant = async () => {
     if (!assistantPrompt) return;
@@ -113,14 +54,14 @@ export default function SourcesPage() {
       const suggestion = await assistantService.suggestConnector(assistantPrompt);
       setIsAssistantModalOpen(false);
       setIsModalOpen(true);
-      
+
       // Pre-fill the form with the suggestion
       form.setFieldsValue({
         name: `Suggested ${suggestion.plugin_id}`,
         type: suggestion.plugin_id,
         ...suggestion.config
       });
-      
+
       message.success('Assistant suggested a configuration!');
       if (suggestion.explanation) {
         Modal.info({
@@ -128,7 +69,7 @@ export default function SourcesPage() {
           content: suggestion.explanation,
         });
       }
-    } catch (error) {
+    } catch {
       message.error('Assistant failed to suggest a configuration');
     } finally {
       setIsAssistantLoading(false);
@@ -136,59 +77,7 @@ export default function SourcesPage() {
     }
   };
 
-  const handleCheckConnection = async () => {
-    if (!mongoConnStr || !mongoConnStr.includes('mongodb')) {
-      message.warning('Please enter a valid MongoDB connection string');
-      return;
-    }
-    
-    setIsTestingConn(true);
-    setDatabases([]);
-    setCollections([]);
-    setSchema([]);
-    form.setFieldsValue({ database: undefined, collection: undefined, content_field: undefined, metadata_fields: [] });
-
-    try {
-      const res = await mongodbService.getDatabases(mongoConnStr);
-      setDatabases(res.databases);
-      message.success('Connected to MongoDB successfully');
-    } catch (err) {
-      message.error('Failed to connect to MongoDB');
-    } finally {
-      setIsTestingConn(false);
-    }
-  };
-
-  // Reset dependent fields when database changes
-  React.useEffect(() => {
-    if (selectedType === 'mongodb') {
-      setCollections([]);
-      setSchema([]);
-      form.setFieldsValue({ collection: undefined, content_field: undefined, metadata_fields: [] });
-    }
-  }, [mongoDb, form, selectedType]);
-
-  // Fetch Collections when connection string and database are provided
-  React.useEffect(() => {
-    if (selectedType === 'mongodb' && mongoConnStr && mongoDb) {
-      mongodbService.getCollections(mongoConnStr, mongoDb)
-        .then(res => setCollections(res.collections))
-        .catch(() => message.error('Failed to fetch MongoDB collections'));
-    }
-  }, [selectedType, mongoConnStr, mongoDb]);
-
-  // Fetch Schema when collection is selected
-  React.useEffect(() => {
-    if (selectedType === 'mongodb' && mongoConnStr && mongoDb && mongoColl && !mongoQueryMode) {
-      mongodbService.getSchema(mongoConnStr, mongoDb, mongoColl)
-        .then(res => setSchema(res.schema))
-        .catch(() => message.error('Failed to fetch collection schema'));
-    }
-  }, [selectedType, mongoConnStr, mongoDb, mongoColl, mongoQueryMode]);
-
-  const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
   const [pluginSchema, setPluginSchema] = useState<ConfigSchema | null>(null);
-  const [selectedVsId, setSelectedVsId] = useState<string | null>(null);
   const [vsSchema, setVsSchema] = useState<ConfigSchema | null>(null);
 
   // Fetch Sources
@@ -217,7 +106,7 @@ export default function SourcesPage() {
     try {
       const schema = await pluginService.getPluginSchema(pluginId);
       setPluginSchema(schema);
-    } catch (error) {
+    } catch {
       message.error('Failed to fetch plugin schema');
       setPluginSchema(null);
     }
@@ -227,7 +116,7 @@ export default function SourcesPage() {
     try {
       const schema = await vectorStoreService.getVectorStoreSchema(vsId);
       setVsSchema(schema);
-    } catch (error) {
+    } catch {
       message.error('Failed to fetch vector store schema');
       setVsSchema(null);
     }
@@ -253,8 +142,9 @@ export default function SourcesPage() {
     onSuccess: () => {
       message.success('Ingestion started successfully');
     },
-    onError: (error: any) => {
-      message.error(error.response?.data?.message || 'Failed to start ingestion');
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start ingestion';
+      message.error(errorMessage);
     }
   });
 
@@ -289,11 +179,11 @@ export default function SourcesPage() {
     {
       title: 'Action',
       key: 'action',
-      render: (_: any, record: DataSource) => (
+      render: (_: unknown, record: DataSource) => (
         <Space size="middle">
-          <Button 
-            type="text" 
-            icon={<Play size={16} />} 
+          <Button
+            type="text"
+            icon={<Play size={16} />}
             loading={ingestMutation.isPending && selectedSourceForIngest?.id === record.id}
             onClick={() => {
               setSelectedSourceForIngest(record);
@@ -307,7 +197,7 @@ export default function SourcesPage() {
                 execution_mode: 'sequential',
                 max_workers: 4
               });
-            }} 
+            }}
           />
           <Button type="text" icon={<Settings size={16} />} />
           <Button type="text" danger icon={<Trash2 size={16} />} />
@@ -316,24 +206,27 @@ export default function SourcesPage() {
     },
   ];
 
-  const handleAddSource = (values: any) => {
+  const handleAddSource = (values: Record<string, unknown>) => {
     const { name, type, ...config } = values;
-    
+
+    const typedConfig = config as Record<string, unknown>;
+
     // Handle special cases like JSON strings in config
-    Object.keys(config).forEach(key => {
-      if (typeof config[key] === 'string' && (config[key].startsWith('{') || config[key].startsWith('['))) {
+    Object.keys(typedConfig).forEach(key => {
+      const val = typedConfig[key];
+      if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
         try {
-          config[key] = JSON.parse(config[key]);
-        } catch (e) {
+          typedConfig[key] = JSON.parse(val);
+        } catch {
           // Keep as string if not valid JSON
         }
       }
     });
 
     addSourceMutation.mutate({
-      name,
-      type,
-      config,
+      name: name as string,
+      type: type as string,
+      config: typedConfig,
       status: 'active'
     });
   };
@@ -357,8 +250,8 @@ export default function SourcesPage() {
           <Text type="secondary">Connect and manage your data origins for the RAG pipeline.</Text>
         </div>
         <Space>
-          <Button 
-            icon={<Bot size={16} />} 
+          <Button
+            icon={<Bot size={16} />}
             onClick={() => setIsAssistantModalOpen(true)}
             className="border-purple-200 text-purple-600 hover:text-purple-700 hover:border-purple-300"
           >
@@ -373,8 +266,8 @@ export default function SourcesPage() {
       <div className="space-y-4">
         <Title level={4}>Quick Connect</Title>
         <Flex gap="middle" wrap="wrap">
-          <Button 
-            icon={<Folder size={16} className="text-blue-500" />} 
+          <Button
+            icon={<Folder size={16} className="text-blue-500" />}
             onClick={() => {
               setIsModalOpen(true);
               form.setFieldsValue({ type: 'local_file' });
@@ -382,8 +275,8 @@ export default function SourcesPage() {
           >
             Local Files
           </Button>
-          <Button 
-            icon={<DbIcon size={16} className="text-green-500" />} 
+          <Button
+            icon={<DbIcon size={16} className="text-green-500" />}
             onClick={() => {
               setIsModalOpen(true);
               form.setFieldsValue({ type: 'mongodb' });
@@ -391,8 +284,8 @@ export default function SourcesPage() {
           >
             MongoDB
           </Button>
-          <Button 
-            icon={<Globe size={16} className="text-orange-500" />} 
+          <Button
+            icon={<Globe size={16} className="text-orange-500" />}
             onClick={() => {
               setIsModalOpen(true);
               form.setFieldsValue({ type: 'web_scraper' });
@@ -411,14 +304,13 @@ export default function SourcesPage() {
         <LogViewer />
       </div>
 
-      <Modal 
-        title="Add New Data Source" 
-        open={isModalOpen} 
-        onOk={() => form.submit()} 
+      <Modal
+        title="Add New Data Source"
+        open={isModalOpen}
+        onOk={() => form.submit()}
         onCancel={() => {
           setIsModalOpen(false);
           setPluginSchema(null);
-          setSelectedPluginId(null);
         }}
         confirmLoading={addSourceMutation.isPending}
       >
@@ -427,10 +319,9 @@ export default function SourcesPage() {
             <Input placeholder="e.g. Documentation Folder" />
           </Form.Item>
           <Form.Item name="type" label="Source Type" rules={[{ required: true }]}>
-            <Select 
+            <Select
               placeholder="Select a plugin"
               onChange={(value) => {
-                setSelectedPluginId(value);
                 fetchPluginSchema(value);
               }}
             >
@@ -456,7 +347,6 @@ export default function SourcesPage() {
         onCancel={() => {
           setIsIngestModalOpen(false);
           setVsSchema(null);
-          setSelectedVsId(null);
         }}
         confirmLoading={ingestMutation.isPending}
         width={600}
@@ -467,9 +357,9 @@ export default function SourcesPage() {
           onFinish={(values) => {
             if (!selectedSourceForIngest) return;
             const selectedModel = availableModels?.find(m => m.id === values.embedding_model_id);
-            
+
             // Extract vector store config
-            const { vector_store, index_name, embedding_model_id, execution_mode, max_workers, strategy, chunk_size, chunk_overlap, separators, encoding_name, ...vs_config } = values;
+            const { vector_store, index_name, execution_mode, max_workers, strategy, chunk_size, chunk_overlap, separators, encoding_name, ...vs_config } = values;
 
             ingestMutation.mutate({
               plugin_id: selectedSourceForIngest.type,
@@ -496,10 +386,9 @@ export default function SourcesPage() {
         >
           <Flex gap="middle">
             <Form.Item name="vector_store" label="Vector Store" rules={[{ required: true }]} className="flex-1" initialValue="opensearch">
-              <Select 
+              <Select
                 placeholder="Select vector store"
                 onChange={(value) => {
-                  setSelectedVsId(value);
                   fetchVsSchema(value);
                 }}
               >
@@ -521,7 +410,7 @@ export default function SourcesPage() {
           )}
 
           <Divider titlePlacement="left">Embedding & Execution</Divider>
-          
+
           <Form.Item name="embedding_model_id" label="Embedding Model" rules={[{ required: true }]}>
             <Select placeholder="Select a configured model">
               {availableModels?.map(m => (
@@ -547,7 +436,7 @@ export default function SourcesPage() {
           </Flex>
 
           <Divider titlePlacement="left">Chunking Configuration</Divider>
-          
+
           <Form.Item name="strategy" label="Chunking Strategy" initialValue="recursive">
             <Select>
               <Select.Option value="recursive">Recursive Character (Recommended)</Select.Option>
@@ -598,8 +487,8 @@ export default function SourcesPage() {
           <Text>
             Describe your data source in natural language, and the AI will suggest the best connector and configuration.
           </Text>
-          <Input.TextArea 
-            rows={4} 
+          <Input.TextArea
+            rows={4}
             placeholder="e.g. I have a MongoDB database at localhost:27017 called 'my_app' and I want to index the 'articles' collection. The text is in the 'body' field."
             value={assistantPrompt}
             onChange={(e) => setAssistantPrompt(e.target.value)}
@@ -612,4 +501,3 @@ export default function SourcesPage() {
     </div>
   );
 }
-

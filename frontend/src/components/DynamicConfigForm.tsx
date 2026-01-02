@@ -1,27 +1,38 @@
 import React from 'react';
-import { Form, Input, Select, Switch, InputNumber, Space, Typography } from 'antd';
+import { Form, Input, Select, Switch, InputNumber } from 'antd';
 
-const { Text } = Typography;
+interface ConfigField {
+  type: string;
+  title?: string;
+  description?: string;
+  default?: unknown;
+  minimum?: number;
+  maximum?: number;
+  [key: string]: unknown;
+}
 
 interface DynamicConfigFormProps {
   schema: {
     type: string;
-    properties: Record<string, any>;
+    properties: Record<string, ConfigField>;
     required?: string[];
   };
   prefix?: string;
 }
 
-export const DynamicConfigForm: React.FC<DynamicConfigFormProps> = ({ schema, prefix = '' }) => {
+export const DynamicConfigForm: React.FC<DynamicConfigFormProps> = ({
+  schema,
+  prefix = "",
+}) => {
   if (!schema || !schema.properties) return null;
 
-  const renderField = (key: string, field: any) => {
+  const renderField = (key: string, field: ConfigField) => {
     const name = prefix ? [prefix, key] : key;
     const label = field.title || key;
     const required = schema.required?.includes(key);
 
     switch (field.type) {
-      case 'string':
+      case "string":
         return (
           <Form.Item
             key={key}
@@ -31,7 +42,7 @@ export const DynamicConfigForm: React.FC<DynamicConfigFormProps> = ({ schema, pr
             rules={[{ required, message: `Please input ${label}!` }]}
             initialValue={field.default}
           >
-            <Input placeholder={field.default || ''} />
+            <Input placeholder={(field.default as string) || ''} />
           </Form.Item>
         );
       case 'boolean':

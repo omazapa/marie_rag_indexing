@@ -1,62 +1,74 @@
+import urllib.parse
+from collections.abc import Generator
+from typing import Any
+
 import requests
 from bs4 import BeautifulSoup
-from typing import List, Dict, Any, Generator
+
 from ....application.ports.data_source import DataSourcePort
 from ....domain.models import Document
-import urllib.parse
+
 
 class WebScraperAdapter(DataSourcePort):
     """
     Adapter to scrape content from websites.
     """
-    def __init__(self, config: Dict[str, Any]):
+
+    def __init__(self, config: dict[str, Any]):
         super().__init__(config)
         self.base_url = config.get("base_url")
         self.max_depth = config.get("max_depth", 1)
-        self.visited = set()
+        self.visited: set[str] = set()
 
     def load_data(self) -> Generator[Document, None, None]:
         if not self.base_url:
             return
-        
+
         yield from self._scrape(self.base_url, 0)
 
     def _scrape(self, url: str, depth: int) -> Generator[Document, None, None]:
         if depth > self.max_depth or url in self.visited:
             return
-        
+
         self.visited.add(url)
-        
+
         try:
             response = requests.get(url, timeout=10)
-            if response.status_code != 200:
+            if response.status_code != requests.codes.ok:
                 return
-            
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
+
+            soup = BeautifulSoup(response.text, "html.parser")
+
             # Remove script and style elements
             for script in soup(["script", "style"]):
                 script.decompose()
-            
-            text = soup.get_text(separator=' ', strip=True)
-            
+
+            text = soup.get_text(separator=" ", strip=True)
+
             yield Document(
                 content=text,
                 metadata={
                     "source": url,
                     "title": soup.title.string if soup.title else url,
-                    "depth": depth
+                    "depth": depth,
                 },
-                source_id=self.config.get("id", "unknown")
+                source_id=self.config.get("id", "unknown"),
             )
-            
+
             if depth < self.max_depth:
-                for link in soup.find_all('a', href=True):
-                    next_url = urllib.parse.urljoin(url, link['href'])
+                for link in soup.find_all("a", href=True):
+                    href = link["href"]
+                    if not isinstance(href, str):
+                        continue
+                    next_url = urllib.parse.urljoin(url, href)
                     # Only follow links from the same domain
-                    if urllib.parse.urlparse(next_url).netloc == urllib.parse.urlparse(self.base_url).netloc:
+                    if (
+                        self.base_url
+                        and urllib.parse.urlparse(next_url).netloc
+                        == urllib.parse.urlparse(self.base_url).netloc
+                    ):
                         yield from self._scrape(next_url, depth + 1)
-                        
+
         except Exception as e:
             print(f"Error scraping {url}: {e}")
 
@@ -69,9 +81,11 @@ class WebScraperAdapter(DataSourcePort):
         return "Web Scraper"
 
     def test_connection(self) -> bool:
+        if not self.base_url:
+            return False
         try:
             response = requests.get(self.base_url, timeout=5)
-            return response.status_code == 200
+            return bool(response.status_code == requests.codes.ok)
         except Exception:
             return False
 
@@ -79,7 +93,7 @@ class WebScraperAdapter(DataSourcePort):
         return bool(self.base_url and self.base_url.startswith("http"))
 
     @staticmethod
-    def get_config_schema() -> Dict[str, Any]:
+    def get_config_schema() -> dict[str, Any]:
         return {
             "type": "object",
             "properties": {
@@ -87,15 +101,15 @@ class WebScraperAdapter(DataSourcePort):
                     "type": "string",
                     "title": "Base URL",
                     "description": "URL of the website to scrape",
-                    "default": "https://example.com"
+                    "default": "https://example.com",
                 },
                 "max_depth": {
                     "type": "integer",
                     "title": "Max Depth",
                     "description": "Maximum depth for crawling links",
                     "default": 1,
-                    "minimum": 0
-                }
+                    "minimum": 0,
+                },
             },
-            "required": ["base_url"]
+            "required": ["base_url"],
         }

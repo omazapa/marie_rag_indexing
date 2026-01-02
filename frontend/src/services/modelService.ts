@@ -6,7 +6,7 @@ export interface EmbeddingModel {
   provider: 'huggingface' | 'ollama';
   model: string;
   status: string;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 export const modelService = {

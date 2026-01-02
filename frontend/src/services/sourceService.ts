@@ -6,7 +6,7 @@ export interface DataSource {
   type: string;
   status: 'active' | 'inactive' | 'error';
   lastRun: string;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 export const sourceService = {

@@ -1,17 +1,18 @@
-import queue
 import json
-from typing import Generator
+import queue
+from collections.abc import Generator
+
 
 class LogManager:
     def __init__(self):
-        self.listeners = []
+        self.listeners: list[queue.Queue[str]] = []
 
-    def subscribe(self) -> queue.Queue:
-        q = queue.Queue(maxsize=100)
+    def subscribe(self) -> queue.Queue[str]:
+        q: queue.Queue[str] = queue.Queue(maxsize=100)
         self.listeners.append(q)
         return q
 
-    def unsubscribe(self, q: queue.Queue):
+    def unsubscribe(self, q: queue.Queue[str]):
         if q in self.listeners:
             self.listeners.remove(q)
 
@@ -23,7 +24,9 @@ class LogManager:
             except queue.Full:
                 pass
 
+
 log_manager = LogManager()
+
 
 def stream_logs(q: queue.Queue) -> Generator[str, None, None]:
     while True:

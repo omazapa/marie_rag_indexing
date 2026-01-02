@@ -1,20 +1,20 @@
 'use client';
 
 import React from 'react';
-import { 
-  Card, 
-  Typography, 
-  Form, 
-  Input, 
-  Button, 
-  ColorPicker, 
-  Space, 
-  Divider, 
+import {
+  Card,
+  Typography,
+  Form,
+  Input,
+  Button,
+  ColorPicker,
+  Space,
+  Divider,
   App,
   Breadcrumb,
   Switch
 } from 'antd';
-import { Settings as SettingsIcon, Palette, Globe, Shield } from 'lucide-react';
+import { Palette, Globe, Shield } from 'lucide-react';
 import { BRAND_CONFIG } from '@/core/branding';
 import Link from 'next/link';
 
@@ -24,7 +24,7 @@ export default function SettingsPage() {
   const { message } = App.useApp();
   const [form] = Form.useForm();
 
-  const onFinish = (values: any) => {
+  const onFinish = (values: Record<string, unknown>) => {
     console.log('Settings saved:', values);
     message.success('Settings saved successfully (Simulated)');
   };
@@ -37,7 +37,7 @@ export default function SettingsPage() {
           { title: 'Settings' },
         ]}
       />
-      
+
       <div>
         <Title level={2}>Settings</Title>
         <Text type="secondary">Configure your workspace and white-labeling options.</Text>
@@ -45,7 +45,7 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <Card 
+          <Card
             title={<Space><Palette size={18} /><span>Branding & White Label</span></Space>}
             variant="borderless"
             className="shadow-sm"
@@ -95,7 +95,7 @@ export default function SettingsPage() {
             </Form>
           </Card>
 
-          <Card 
+          <Card
             title={<Space><Globe size={18} /><span>General Settings</span></Space>}
             variant="borderless"
             className="shadow-sm"
@@ -112,7 +112,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-6">
-          <Card 
+          <Card
             title={<Space><Shield size={18} /><span>Security</span></Space>}
             variant="borderless"
             className="shadow-sm"
@@ -134,7 +134,7 @@ export default function SettingsPage() {
           <Card variant="borderless" className="shadow-sm bg-purple-50">
             <Title level={5} style={{ color: BRAND_CONFIG.primaryColor }}>Pro Tip</Title>
             <Text>
-              You can customize the entire look and feel of the platform to match your corporate identity. 
+              You can customize the entire look and feel of the platform to match your corporate identity.
               Changes here will reflect across all user interfaces.
             </Text>
           </Card>

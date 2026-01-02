@@ -9,7 +9,7 @@ You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generatio
 - **Backend**: Python 3.10+, Flask, LangChain, OpenSearch-Py.
 - **Frontend**: Next.js (App Router), TypeScript, Ant Design (v6), Ant Design X (AI components).
 - **Package Management**: `uv` for Python (use `pyproject.toml`), `npm` for Frontend.
-- **Databases**: 
+- **Databases**:
   - **Vector Stores**: OpenSearch (Primary), Pinecone, Milvus, Weaviate, Qdrant, ChromaDB, PGVector.
   - **Metadata/State**: OpenSearch, PostgreSQL, MongoDB.
 

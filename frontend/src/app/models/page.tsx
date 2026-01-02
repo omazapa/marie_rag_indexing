@@ -1,21 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { 
-  Table, 
-  Button, 
-  Space, 
-  Card, 
-  Typography, 
-  Tag, 
-  Modal, 
-  Form, 
-  Input, 
-  Select, 
+import React, { useState } from 'react';
+import {
+  Table,
+  Button,
+  Space,
+  Card,
+  Typography,
+  Tag,
+  Modal,
+  Form,
+  Input,
+  Select,
   App,
   Spin,
-  Divider,
-  Flex,
   AutoComplete,
   Breadcrumb
 } from 'antd';
@@ -32,7 +30,7 @@ export default function ModelsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
   const selectedProvider = Form.useWatch('provider', form);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<{ value: string; label: React.ReactNode }[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   const { data: models, isLoading } = useQuery({
@@ -45,11 +43,11 @@ export default function ModelsPage() {
       setSearchResults([]);
       return;
     }
-    
+
     setIsSearching(true);
     try {
       const results = await modelService.searchModels(selectedProvider, value);
-      setSearchResults(results.map((r: any) => ({
+      setSearchResults(results.map((r: { id: string; name: string; downloads?: number; installed?: boolean }) => ({
         value: r.id,
         label: (
           <div className="flex justify-between items-center">
@@ -126,23 +124,23 @@ export default function ModelsPage() {
     {
       title: 'Action',
       key: 'action',
-      render: (_: any, record: EmbeddingModel) => (
-        <Button 
-          type="text" 
-          danger 
-          icon={<Trash2 size={16} />} 
+      render: (_: unknown, record: EmbeddingModel) => (
+        <Button
+          type="text"
+          danger
+          icon={<Trash2 size={16} />}
           onClick={() => deleteModelMutation.mutate(record.id)}
         />
       ),
     },
   ];
 
-  const handleAddModel = (values: any) => {
+  const handleAddModel = (values: Record<string, unknown>) => {
     const config = values.provider === 'ollama' ? { base_url: values.base_url } : {};
     addModelMutation.mutate({
-      name: values.name,
-      provider: values.provider,
-      model: values.model,
+      name: values.name as string,
+      provider: values.provider as 'huggingface' | 'ollama',
+      model: values.model as string,
       config: config
     });
   };
@@ -190,7 +188,7 @@ export default function ModelsPage() {
           <Form.Item name="name" label="Display Name" rules={[{ required: true }]}>
             <Input placeholder="e.g. My Local Llama" />
           </Form.Item>
-          
+
           <Form.Item name="provider" label="Provider" rules={[{ required: true }]}>
             <Select onChange={() => setSearchResults([])}>
               <Select.Option value="huggingface">HuggingFace (Local)</Select.Option>

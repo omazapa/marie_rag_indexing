@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Card, Typography, Empty } from 'antd';
+import { Card, Typography } from 'antd';
 
 const { Text } = Typography;
 
@@ -27,8 +27,7 @@ export const LogViewer: React.FC = () => {
       setLogs((prev) => [...prev, newLog].slice(-100)); // Keep last 100 logs
     };
 
-    eventSource.onerror = (err) => {
-      console.error('EventSource failed:', err);
+    eventSource.onerror = () => {
       // eventSource.close();
     };
 
@@ -44,19 +43,19 @@ export const LogViewer: React.FC = () => {
   }, [logs]);
 
   return (
-    <Card 
-      title="Ingestion Logs" 
-      size="small" 
+    <Card
+      title="Ingestion Logs"
+      size="small"
       styles={{ body: { padding: 0 } }}
       style={{ height: '300px', display: 'flex', flexDirection: 'column' }}
     >
-      <div 
+      <div
         ref={scrollRef}
-        style={{ 
-          backgroundColor: '#1e1e1e', 
-          color: '#d4d4d4', 
-          padding: '12px', 
-          fontFamily: 'monospace', 
+        style={{
+          backgroundColor: '#1e1e1e',
+          color: '#d4d4d4',
+          padding: '12px',
+          fontFamily: 'monospace',
           fontSize: '12px',
           overflowY: 'auto',
           flex: 1

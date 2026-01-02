@@ -61,7 +61,7 @@
   - Design system with pre-built themes (Default, Dark, Lark, Blossom)
   - v6.0: Minimum React 18 support, improved performance
   - Comprehensive documentation and component demos
-  
+
 - **Ant Design X**: AI-focused interface components (v2.1.1)
   - RICH Design Paradigm: Role, Intention, Conversation, Hybrid UI
   - AI interface components for configuration and interaction:
@@ -84,7 +84,7 @@
   - Motion and transitions for smooth UX
   - Accessibility and responsive design
   - Data visualization integration with AntV
-  
+
 - **Development Features**:
   - TypeScript support
   - Server-side rendering (SSR) compatible
@@ -92,7 +92,7 @@
   - i18n internationalization support
   - Custom date library integration
   - Compatible with Vite, Next.js, Umi, Rsbuild, Farm
-  
+
 - **LLMs.txt Standard Knowledge**:
   - `/llms.txt` file format for LLM-friendly documentation
   - Markdown-based structured content for AI consumption
@@ -115,7 +115,7 @@
 ### Open Source LLM Solutions Expertise
 
 - **Open WebUI**: Comprehensive expertise in the extensible, feature-rich self-hosted AI platform
-  
+
   **Core Architecture & Deployment**:
   - Self-hosted AI platform operating entirely offline
   - Docker-based deployment (bundled with Ollama or standalone)
@@ -123,7 +123,7 @@
   - Manual installation via `uv` or `pip` (Python 3.11 recommended)
   - Platform support: macOS, Linux (x86_64, ARM64, Raspberry Pi), Windows
   - Desktop app (experimental WIP)
-  
+
   **LLM Integration & Model Management**:
   - Multi-provider support: Ollama, OpenAI, Azure OpenAI, custom APIs
   - Built-in inference engine for RAG
@@ -132,7 +132,7 @@
   - Direct connections and API key management
   - Pipeline system for custom model workflows
   - Reasoning model support (e.g., o1, o3)
-  
+
   **RAG & Document Processing**:
   - 9 vector database options: ChromaDB (default), PGVector, Qdrant, Milvus, Elasticsearch, OpenSearch, Pinecone, S3Vector, Oracle 23ai
   - Multiple content extraction engines:
@@ -150,13 +150,13 @@
   - Document library with `#` command integration
   - Configurable chunk size, overlap, and relevance thresholds
   - Async embedding support for performance
-  
+
   **Web Search & RAG Enhancement**:
   - 15+ web search providers: SearXNG, Google PSE, Brave, Kagi, Mojeek, Tavily, Perplexity, serpstack, serper, Serply, DuckDuckGo, SearchApi, SerpApi, Bing, Jina, Exa, Azure AI Search, Ollama Cloud
   - Web browsing with `#` URL command
   - Direct search result injection into chat
   - YouTube integration support
-  
+
   **Tools & Function System**:
   - Native Python function calling with built-in code editor
   - BYOF (Bring Your Own Function) - pure Python functions
@@ -166,7 +166,7 @@
   - Direct tool server connections
   - Function manifolds for complex workflows
   - Load tools from URL/GitHub
-  
+
   **UI & Features**:
   - Svelte-based frontend
   - Chat interface with:
@@ -185,7 +185,7 @@
     - Folders, channels, notes
     - Tags and metadata
   - Playground for API testing
-  
+
   **Authentication & Access Control**:
   - Role-Based Access Control (RBAC): admin, user, pending
   - Enterprise authentication:
@@ -201,7 +201,7 @@
     - Multiple models, temporary chats
   - Group-based access control
   - Model-level access restrictions
-  
+
   **Storage & Database**:
   - Flexible database options:
     - SQLite (default, with optional encryption)
@@ -211,7 +211,7 @@
     - Google Cloud Storage
     - Azure Blob Storage
   - Persistent artifact storage (key-value API for journals, trackers, leaderboards)
-  
+
   **Advanced Features**:
   - Pipelines middleware (inlet/outlet filters)
   - Custom model metadata and capabilities
@@ -222,18 +222,18 @@
   - Tags and categorization
   - Export/import functionality
   - Webhook support
-  
+
   **Observability & Monitoring**:
   - OpenTelemetry support (traces, metrics, logs)
   - Console messages and network request tracking
   - MongoDB logs integration
   - Error tracking and debugging
-  
+
   **Cloud Integration**:
   - Google Drive file picking
   - OneDrive/SharePoint integration
   - Direct cloud document import
-  
+
   **Configuration Management**:
   - Environment-based configuration
   - Persistent config system
@@ -241,9 +241,9 @@
   - Connection verification
   - Model order/pinning
   - Default models configuration
-  
+
 - **AnythingLLM**: Comprehensive expertise in the full-stack AI platform (v1.9.1)
-  
+
   **Core Architecture & Product Philosophy**:
   - Full-stack application for private ChatGPT experience
   - Workspace-based containerization (threads with document isolation)
@@ -251,7 +251,7 @@
   - Privacy-first design: 100% local by default
   - No account needed for desktop version (non-SaaS)
   - Open source (MIT licensed)
-  
+
   **Deployment Options**:
   - **Desktop Application**:
     - One-click install (MacOS, Windows, Linux)
@@ -272,7 +272,7 @@
   - **Mobile Application**:
     - iOS and Android support
     - Terms of Service and Privacy Policy
-  
+
   **LLM Integration**:
   - **Local Providers**:
     - AnythingLLM Default (built-in)
@@ -303,7 +303,7 @@
   - Free-form LLM selection for certain providers
   - No model selection for some providers (default, huggingface)
   - Workspace-level LLM override (system default or custom)
-  
+
   **Embedding Models**:
   - **Local**:
     - AnythingLLM Default (built-in)
@@ -315,7 +315,7 @@
     - Azure OpenAI
     - Cohere
   - Embedder configuration per workspace or system-wide
-  
+
   **Vector Databases**:
   - **Local**:
     - LanceDB (default, 100% local, no configuration)
@@ -331,7 +331,7 @@
   - Namespace/collection management
   - Vector search with similarity scoring
   - Hybrid BM25 weighting support
-  
+
   **RAG & Document Processing**:
   - **Supported Document Types**:
     - PDFs
@@ -362,13 +362,13 @@
     - Attaching: Direct file injection (images, PDFs as documents)
     - RAG: Semantic search with embeddings
     - Mime type `application/anythingllm-document` for document attachments
-  
+
   **Transcription Models**:
   - **Local**:
     - AnythingLLM Default (built-in)
   - **Cloud**:
     - OpenAI (Whisper)
-  
+
   **Workspace Features**:
   - **Chat Modes**:
     - Chat: LLM general knowledge + document context
@@ -394,7 +394,7 @@
     - Thread-based conversations within workspaces
     - Thread isolation
     - API support for threads
-  
+
   **AI Agents**:
   - **Agent Configuration**:
     - @agent invocation in chat
@@ -421,7 +421,7 @@
     - plugin.json reference
     - handler.js reference
     - Community Hub integration
-  
+
   **Chat Interface**:
   - Message history management
   - Rolling chat history for context
@@ -431,7 +431,7 @@
   - Chat streaming (text/event-stream)
   - Chat logs and event tracking
   - Suggested messages per workspace
-  
+
   **Chat Modes & Features**:
   - Text-only and multi-modal support (images, audio)
   - Temperature control
@@ -439,7 +439,7 @@
   - Source citations from documents
   - Abort/stop response capability
   - Reset conversation option
-  
+
   **API Access**:
   - Full Developer API
   - RESTful endpoints
@@ -451,7 +451,7 @@
   - API Key management
   - Comprehensive API documentation (/docs)
   - SDK compatibility testing
-  
+
   **Embedding & Chat Widgets**:
   - Embeddable chat widgets (public-facing)
   - Single workspace per embed
@@ -459,12 +459,12 @@
   - Sent chats monitoring
   - Export embed chats
   - Publish workspaces to the world
-  
+
   **Browser Extension**:
   - AnythingLLM Browser Extension
   - Installation guide
   - Integration with workspaces
-  
+
   **Community Hub**:
   - What is Community Hub
   - Importing items from hub
@@ -475,7 +475,7 @@
     - Slash Commands
   - Authentication required for publishing
   - FAQ and guidelines
-  
+
   **Security & Access**:
   - Multi-user mode support
   - Role-based access control (RBAC)
@@ -485,7 +485,7 @@
   - Admin controls
   - Event logs for auditing
   - Privacy & data handling policies
-  
+
   **Advanced Features**:
   - **System Prompt Variables**: Dynamic prompt customization
   - **Appearance Customization**: White-labeling, branding
@@ -501,14 +501,14 @@
   - **NVIDIA NIM Integration**:
     - Introduction and requirements
     - Installation walkthrough
-  
+
   **File & Storage**:
   - Local storage by default
   - Storage location configurable
   - Data directory specification
   - Update mechanisms
   - Backup and migration support
-  
+
   **Observability & Monitoring**:
   - Event logs
   - Chat logs
@@ -516,13 +516,13 @@
   - Performance metrics
   - Error tracking
   - Debugging guides
-  
+
   **Import & Export**:
   - Import custom models
   - Export workspaces
   - Export chat history
   - Community Hub imports
-  
+
   **Technical Stack**:
   - **Frontend**: React-based SPA, react-i18next for i18n
   - **Backend**: Node.js with Express
@@ -530,14 +530,14 @@
   - **Vector Operations**: Native vector DB clients
   - **File Processing**: Multiple document parsers
   - **API**: RESTful + OpenAI-compatible
-  
+
   **Configuration Management**:
   - Environment variables
   - System settings (SystemSettings model)
   - Workspace-specific settings
   - User preferences
   - Persistent configuration
-  
+
   **Developer Experience**:
   - Comprehensive documentation (docs.anythingllm.com)
   - API documentation with Swagger
@@ -547,7 +547,7 @@
   - GitHub repository (52.4K+ stars)
   - Active development and changelog
   - MIT licensed
-  
+
   **Enterprise Features**:
   - Self-hosted deployment
   - White-labeling capabilities
@@ -555,7 +555,7 @@
   - Admin dashboards
   - Workspace isolation
   - Cloud option with SLA
-  
+
   **Use Cases**:
   - Private ChatGPT alternative
   - Document Q&A systems
@@ -565,7 +565,7 @@
   - Research and analysis
   - Code documentation chat
   - Enterprise AI deployment
-  
+
 - **Onyx (formerly Danswer)**: Comprehensive knowledge of Onyx
   - Enterprise search and question-answering systems
   - Connector development for various data sources

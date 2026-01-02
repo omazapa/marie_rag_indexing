@@ -7,7 +7,13 @@ export interface Plugin {
 
 export interface ConfigSchema {
   type: string;
-  properties: Record<string, any>;
+  properties: Record<string, {
+    type: string;
+    title?: string;
+    description?: string;
+    default?: unknown;
+    [key: string]: unknown;
+  }>;
   required?: string[];
 }
 

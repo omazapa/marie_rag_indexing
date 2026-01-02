@@ -1,18 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Table, 
-  Button, 
-  Space, 
-  Card, 
-  Typography, 
-  Tag, 
-  Modal, 
-  Select, 
+import {
+  Table,
+  Button,
+  Space,
+  Card,
+  Typography,
+  Tag,
+  Select,
   App,
   Breadcrumb,
-  Flex,
   Tooltip
 } from 'antd';
 import { FileText, Trash2, RefreshCw, Database, Search } from 'lucide-react';
@@ -44,7 +42,7 @@ export default function IndicesPage() {
       queryClient.invalidateQueries({ queryKey: ['indices', selectedVectorStore] });
       message.success('Index deleted successfully');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(`Failed to delete index: ${error.message}`);
     }
   });
@@ -96,16 +94,16 @@ export default function IndicesPage() {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: IndexInfo) => (
+      render: (_: unknown, record: IndexInfo) => (
         <Space size="middle">
           <Tooltip title="Search Index">
             <Button type="text" icon={<Search size={16} />} />
           </Tooltip>
           <Tooltip title="Delete Index">
-            <Button 
-              type="text" 
-              danger 
-              icon={<Trash2 size={16} />} 
+            <Button
+              type="text"
+              danger
+              icon={<Trash2 size={16} />}
               onClick={() => confirmDelete(record.name)}
             />
           </Tooltip>
@@ -122,7 +120,7 @@ export default function IndicesPage() {
           { title: 'Indices' },
         ]}
       />
-      
+
       <div className="flex justify-between items-center">
         <div>
           <Title level={2}>Vector Indices</Title>
@@ -143,9 +141,9 @@ export default function IndicesPage() {
       </div>
 
       <Card variant="borderless" className="shadow-sm">
-        <Table 
-          columns={columns} 
-          dataSource={indices} 
+        <Table
+          columns={columns}
+          dataSource={indices}
           loading={isLoading}
           rowKey="name"
         />

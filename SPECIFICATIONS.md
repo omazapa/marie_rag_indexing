@@ -23,7 +23,7 @@ The system is designed to support multiple RAG paradigms (Naive, Advanced, Modul
   - **Strategies**: Recursive Character, Semantic, Token-based, and specialized splitters (Markdown, HTML, Code).
   - **Parameterization**: Granular control over `chunk_size`, `chunk_overlap`, and separators.
 - **Multi-Granularity Indexing**: Support for hierarchical indexing (Parent-Document Retrieval).
-- **Knowledge Graph Indexing (GraphRAG)**: 
+- **Knowledge Graph Indexing (GraphRAG)**:
     - Automated Entity & Relationship Extraction.
     - Community Summarization for global reasoning.
 - **Multi-Modal Indexing**:
@@ -66,7 +66,7 @@ The system is designed to be database-agnostic, supporting multiple vector store
 - **AI Interface Strategy**:
     - **RICH Paradigm**: Implementation of Role, Intention, Conversation, and Hybrid UI.
     - **Hybrid UI**: Seamless blending of natural language interactions (LUI) with structured graphical components (GUI).
-- **Features**: 
+- **Features**:
     - Visual job control, real-time progress (using `Confirm` components), live logs, and configuration builders.
     - **AI-Driven Configuration**: Use of `Express` and `Welcome` components to guide users through complex setup tasks.
     - **Specialized MongoDB UI**:
@@ -104,4 +104,3 @@ To integrate a new data source, a plugin must implement:
 - Advanced temporal indexing for time-series RAG.
 - Automated index optimization and pruning based on usage patterns.
 - Distributed indexing workers for massive scale ingestion.
-

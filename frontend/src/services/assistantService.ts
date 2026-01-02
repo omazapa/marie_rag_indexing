@@ -2,7 +2,7 @@ import api from './api';
 
 export interface ConnectorSuggestion {
   plugin_id: string;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   explanation: string;
 }
 

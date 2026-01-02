@@ -2,18 +2,18 @@
 
 import React from 'react';
 import { Row, Col, Card, Statistic, Typography, Tag, Spin, Flex, Divider, Button, Space } from 'antd';
-import { 
-  Database, 
-  FileText, 
-  Activity, 
-  CheckCircle2, 
+import {
+  Database,
+  FileText,
+  Activity,
+  CheckCircle2,
   AlertCircle,
   Clock,
   Plus,
   Search,
   Zap
 } from 'lucide-react';
-import { Welcome, Prompts } from '@ant-design/x';
+import { Welcome } from '@ant-design/x';
 import { useQuery } from '@tanstack/react-query';
 import { statsService } from '@/services/statsService';
 import { BRAND_CONFIG } from '@/core/branding';
@@ -79,7 +79,7 @@ export default function Dashboard() {
           </Col>
         </Row>
       </div>
-      
+
       <Divider />
 
       <Row gutter={[24, 24]}>
@@ -127,14 +127,14 @@ export default function Dashboard() {
         <Col span={24}>
           <Card title="Recent Ingestion Jobs" variant="borderless" className="shadow-sm">
             <Flex vertical>
-              {stats?.recent_jobs?.map((item: any, index: number) => (
+              {stats?.recent_jobs?.map((item: { id: string; source: string; status: 'completed' | 'failed' | 'running'; time: string }, index: number) => (
                 <React.Fragment key={item.id}>
                   <Flex align="center" justify="space-between" style={{ padding: '12px 0' }}>
                     <Flex gap="middle" align="center">
-                      {item.status === 'completed' ? 
-                        <CheckCircle2 className="text-green-500" size={24} /> : 
-                        item.status === 'failed' ? 
-                        <AlertCircle className="text-red-500" size={24} /> : 
+                      {item.status === 'completed' ?
+                        <CheckCircle2 className="text-green-500" size={24} /> :
+                        item.status === 'failed' ?
+                        <AlertCircle className="text-red-500" size={24} /> :
                         <Activity className="text-blue-500 animate-pulse" size={24} />
                       }
                       <div>
@@ -142,7 +142,7 @@ export default function Dashboard() {
                           <Text strong>{item.source}</Text>
                         </div>
                         <Text type="secondary">
-                          Job ID: {item.id} • 
+                          Job ID: {item.id} •
                           <Tag className="ml-2" color={item.status === 'completed' ? 'green' : item.status === 'failed' ? 'red' : 'blue'}>
                             {item.status.toUpperCase()}
                           </Tag>
