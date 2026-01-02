@@ -20,11 +20,12 @@ import {
   InputNumber,
   Flex
 } from 'antd';
-import { Plus, Play, Settings, Trash2, Search } from 'lucide-react';
+import { Plus, Play, Settings, Trash2, Search, Bot } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sourceService, DataSource } from '@/services/sourceService';
 import { pluginService } from '@/services/pluginService';
 import { ingestionService } from '@/services/ingestionService';
+import { assistantService } from '@/services/assistantService';
 import { LogViewer } from '@/components/LogViewer';
 import { mongodbService } from '@/services/mongodbService';
 import { modelService } from '@/services/modelService';
@@ -59,6 +60,9 @@ export default function SourcesPage() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
+  const [isAssistantModalOpen, setIsAssistantModalOpen] = useState(false);
+  const [assistantPrompt, setAssistantPrompt] = useState('');
+  const [isAssistantLoading, setIsAssistantLoading] = useState(false);
   const [selectedSourceForIngest, setSelectedSourceForIngest] = useState<DataSource | null>(null);
   const [form] = Form.useForm();
   const [ingestForm] = Form.useForm();
@@ -95,6 +99,36 @@ export default function SourcesPage() {
     };
     return filterTree(data);
   }, [schema, treeSearch]);
+
+  const handleAssistant = async () => {
+    if (!assistantPrompt) return;
+    setIsAssistantLoading(true);
+    try {
+      const suggestion = await assistantService.suggestConnector(assistantPrompt);
+      setIsAssistantModalOpen(false);
+      setIsModalOpen(true);
+      
+      // Pre-fill the form with the suggestion
+      form.setFieldsValue({
+        name: `Suggested ${suggestion.plugin_id}`,
+        type: suggestion.plugin_id,
+        ...suggestion.config
+      });
+      
+      message.success('Assistant suggested a configuration!');
+      if (suggestion.explanation) {
+        Modal.info({
+          title: 'Assistant Explanation',
+          content: suggestion.explanation,
+        });
+      }
+    } catch (error) {
+      message.error('Assistant failed to suggest a configuration');
+    } finally {
+      setIsAssistantLoading(false);
+      setAssistantPrompt('');
+    }
+  };
 
   const handleCheckConnection = async () => {
     if (!mongoConnStr || !mongoConnStr.includes('mongodb')) {
@@ -307,9 +341,17 @@ export default function SourcesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <Title level={2}>Data Sources</Title>
-        <Button type="primary" icon={<Plus size={16} />} onClick={() => setIsModalOpen(true)}>
-          Add Source
-        </Button>
+        <Space>
+          <Button 
+            icon={<Bot size={16} />} 
+            onClick={() => setIsAssistantModalOpen(true)}
+          >
+            Assistant
+          </Button>
+          <Button type="primary" icon={<Plus size={16} />} onClick={() => setIsModalOpen(true)}>
+            Add Source
+          </Button>
+        </Space>
       </div>
 
       <Card>
@@ -590,6 +632,35 @@ export default function SourcesPage() {
             </Form.Item>
           ) : null}
         </Form>
+      </Modal>
+
+      <Modal
+        title={
+          <Space>
+            <Bot size={20} className="text-blue-500" />
+            <span>Connector Assistant</span>
+          </Space>
+        }
+        open={isAssistantModalOpen}
+        onOk={handleAssistant}
+        onCancel={() => setIsAssistantModalOpen(false)}
+        confirmLoading={isAssistantLoading}
+        okText="Suggest Configuration"
+      >
+        <div className="space-y-4">
+          <Text>
+            Describe your data source in natural language, and the AI will suggest the best connector and configuration.
+          </Text>
+          <Input.TextArea 
+            rows={4} 
+            placeholder="e.g. I have a MongoDB database at localhost:27017 called 'my_app' and I want to index the 'articles' collection. The text is in the 'body' field."
+            value={assistantPrompt}
+            onChange={(e) => setAssistantPrompt(e.target.value)}
+          />
+          <Text type="secondary" size="small">
+            Note: This uses the configured Ollama model to process your request.
+          </Text>
+        </div>
       </Modal>
     </div>
   );

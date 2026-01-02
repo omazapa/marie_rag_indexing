@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Table, 
   Button, 
@@ -15,9 +15,10 @@ import {
   App,
   Spin,
   Divider,
-  Flex
+  Flex,
+  AutoComplete
 } from 'antd';
-import { Plus, Trash2, Cpu } from 'lucide-react';
+import { Plus, Trash2, Cpu, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { modelService, EmbeddingModel } from '@/services/modelService';
 
@@ -29,11 +30,39 @@ export default function ModelsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
   const selectedProvider = Form.useWatch('provider', form);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const { data: models, isLoading } = useQuery({
     queryKey: ['models'],
     queryFn: modelService.getModels,
   });
+
+  const handleSearch = async (value: string) => {
+    if (!value || value.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const results = await modelService.searchModels(selectedProvider, value);
+      setSearchResults(results.map((r: any) => ({
+        value: r.id,
+        label: (
+          <div className="flex justify-between items-center">
+            <span>{r.name}</span>
+            {r.downloads && <Tag color="blue">{r.downloads.toLocaleString()} downloads</Tag>}
+            {r.installed && <Tag color="green">Installed</Tag>}
+          </div>
+        )
+      })));
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const addModelMutation = useMutation({
     mutationFn: modelService.addModel,
@@ -151,14 +180,20 @@ export default function ModelsPage() {
           </Form.Item>
           
           <Form.Item name="provider" label="Provider" rules={[{ required: true }]}>
-            <Select>
+            <Select onChange={() => setSearchResults([])}>
               <Select.Option value="huggingface">HuggingFace (Local)</Select.Option>
               <Select.Option value="ollama">Ollama</Select.Option>
             </Select>
           </Form.Item>
 
           <Form.Item name="model" label="Model ID" rules={[{ required: true }]}>
-            <Input placeholder={selectedProvider === 'ollama' ? 'e.g. llama3' : 'e.g. all-MiniLM-L6-v2'} />
+            <AutoComplete
+              options={searchResults}
+              onSearch={handleSearch}
+              placeholder={selectedProvider === 'ollama' ? 'Search Ollama models (e.g. llama3)' : 'Search HuggingFace models (e.g. all-MiniLM)'}
+            >
+              <Input suffix={isSearching ? <Spin size="small" /> : <Search size={16} className="text-gray-400" />} />
+            </AutoComplete>
           </Form.Item>
 
           {selectedProvider === 'ollama' && (

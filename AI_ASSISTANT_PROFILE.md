@@ -31,6 +31,8 @@
 
 ### Software Architecture
 
+- **Expert in Hexagonal Architecture (Ports and Adapters)**
+- **Expert in SOLID Principles and Clean Code**
 - System design and architectural patterns
 - Scalable application architecture
 - Microservices and distributed systems

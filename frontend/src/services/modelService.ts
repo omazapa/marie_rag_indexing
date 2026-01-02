@@ -21,5 +21,9 @@ export const modelService = {
   deleteModel: async (id: string) => {
     const response = await api.delete(`/models/${id}`);
     return response.data;
+  },
+  searchModels: async (provider: string, query: string) => {
+    const response = await api.get('/models/search', { params: { provider, query } });
+    return response.data.results;
   }
 };

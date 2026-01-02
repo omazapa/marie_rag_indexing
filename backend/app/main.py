@@ -11,6 +11,8 @@ from .plugins.sql_plugin import SQLPlugin
 from .core.orchestrator import IngestionOrchestrator
 from .core.chunking import ChunkConfig
 from .core.logs import log_manager, stream_logs
+from .core.models_search import search_huggingface_models, search_ollama_models
+from .core.assistant import ConnectorAssistant
 from pymongo import MongoClient
 
 load_dotenv()
@@ -109,9 +111,52 @@ def create_app():
     def get_sources():
         return jsonify({"sources": data_sources}), 200
 
+    @app.route('/api/v1/assistant/connector', methods=['POST'])
+    def assistant_connector():
+        data = request.json
+        prompt = data.get("prompt")
+        if not prompt:
+            return jsonify({"error": "Missing prompt"}), 400
+            
+        # Try to find an Ollama model to use for the assistant
+        ollama_url = "http://localhost:11434"
+        assistant_model = "llama3"
+        for m in embedding_models:
+            if m["provider"] == "ollama":
+                ollama_url = m.get("config", {}).get("base_url", ollama_url)
+                assistant_model = m.get("model", assistant_model)
+                break
+        
+        assistant = ConnectorAssistant(ollama_url=ollama_url, model=assistant_model)
+        suggestion = assistant.suggest_connector(prompt)
+        return jsonify(suggestion), 200
+
     @app.route('/api/v1/models', methods=['GET'])
     def get_models():
         return jsonify({"models": embedding_models}), 200
+
+    @app.route('/api/v1/models/search', methods=['GET'])
+    def search_models():
+        provider = request.args.get("provider", "huggingface")
+        query = request.args.get("query", "")
+        
+        if not query:
+            return jsonify({"results": []}), 200
+            
+        if provider == "huggingface":
+            results = search_huggingface_models(query)
+        elif provider == "ollama":
+            # Try to get base_url from existing ollama models if any
+            base_url = "http://localhost:11434"
+            for m in embedding_models:
+                if m["provider"] == "ollama":
+                    base_url = m.get("config", {}).get("base_url", base_url)
+                    break
+            results = search_ollama_models(query, base_url)
+        else:
+            return jsonify({"error": "Unsupported provider"}), 400
+            
+        return jsonify({"results": results}), 200
 
     @app.route('/api/v1/models', methods=['POST'])
     def add_model():
