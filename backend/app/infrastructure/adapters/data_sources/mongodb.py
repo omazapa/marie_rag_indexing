@@ -1,10 +1,11 @@
 from pymongo import MongoClient
-from typing import List, Dict, Any
-from .base import BasePlugin, Document
+from typing import List, Dict, Any, Generator
+from ...application.ports.data_source import DataSourcePort
+from ...domain.models import Document
 
-class MongoDBPlugin(BasePlugin):
+class MongoDBAdapter(DataSourcePort):
     """
-    Plugin to ingest documents from a MongoDB collection.
+    Adapter to ingest documents from a MongoDB collection.
     """
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
@@ -21,8 +22,7 @@ class MongoDBPlugin(BasePlugin):
         if self.collection_name:
             self.collection = self.db[self.collection_name]
 
-    def load_data(self) -> List[Document]:
-        documents = []
+    def load_data(self) -> Generator[Document, None, None]:
         try:
             if self.query_mode:
                 if isinstance(self.query, list): # Aggregation pipeline
@@ -38,9 +38,6 @@ class MongoDBPlugin(BasePlugin):
                 for part in parts:
                     if isinstance(current, dict):
                         current = current.get(part)
-                    elif isinstance(current, list) and part.endswith('[]'):
-                        # Handle array notation if needed, but for now simple dot notation
-                        return current
                     else:
                         return None
                 return current

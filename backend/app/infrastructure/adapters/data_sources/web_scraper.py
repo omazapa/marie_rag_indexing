@@ -1,12 +1,13 @@
 import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Generator
-from .base import BasePlugin, Document
+from ...application.ports.data_source import DataSourcePort
+from ...domain.models import Document
 import urllib.parse
 
-class WebScraperPlugin(BasePlugin):
+class WebScraperAdapter(DataSourcePort):
     """
-    Plugin to scrape content from websites.
+    Adapter to scrape content from websites.
     """
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)

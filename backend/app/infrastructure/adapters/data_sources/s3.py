@@ -1,11 +1,12 @@
 import boto3
 import os
 from typing import List, Dict, Any, Generator
-from .base import BasePlugin, Document
+from ...application.ports.data_source import DataSourcePort
+from ...domain.models import Document
 
-class S3Plugin(BasePlugin):
+class S3Adapter(DataSourcePort):
     """
-    Plugin to ingest documents from an S3 bucket or MinIO.
+    Adapter to ingest documents from an S3 bucket or MinIO.
     """
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)

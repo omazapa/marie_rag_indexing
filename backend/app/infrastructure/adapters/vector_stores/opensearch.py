@@ -1,11 +1,12 @@
 from opensearchpy import OpenSearch, helpers
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import os
-import logging
+from ...application.ports.vector_store import VectorStorePort
+from ...domain.models import Chunk
 
-class OpenSearchClient:
+class OpenSearchAdapter(VectorStorePort):
     """
-    Client to interact with OpenSearch for indexing and state management.
+    Adapter for OpenSearch vector store.
     """
     
     def __init__(self):
@@ -16,17 +17,15 @@ class OpenSearchClient:
             hosts=[url],
             http_compress=True,
             http_auth=self.auth,
-            use_ssl=False,  # Set to True in production
+            use_ssl=False,
             verify_certs=False,
             ssl_assert_hostname=False,
             ssl_show_warn=False
         )
 
-    def create_index(self, index_name: str, dimension: int = 384, body: Dict[str, Any] = None):
-        """Creates an index if it doesn't exist."""
+    def create_index(self, index_name: str, dimension: int = 384, body: Optional[Dict[str, Any]] = None):
         if not self.client.indices.exists(index=index_name):
             if not body:
-                # Default hybrid index settings
                 body = {
                     "settings": {
                         "index": {
@@ -54,20 +53,18 @@ class OpenSearchClient:
             return True
         return False
 
-    def index_documents(self, index_name: str, documents: List[Dict[str, Any]]):
-        """Bulk indexes documents."""
+    def index_chunks(self, index_name: str, chunks: List[Chunk]):
         actions = [
             {
                 "_index": index_name,
-                "_source": doc
+                "_source": chunk.dict()
             }
-            for doc in documents
+            for chunk in chunks
         ]
         success, failed = helpers.bulk(self.client, actions)
         return success, failed
 
     def save_checkpoint(self, source_id: str, state: Dict[str, Any]):
-        """Saves the ingestion state for a source."""
         index_name = "ingestion_checkpoints"
         self.create_index(index_name, body={
             "mappings": {
@@ -89,8 +86,7 @@ class OpenSearchClient:
             refresh=True
         )
 
-    def get_checkpoint(self, source_id: str) -> Dict[str, Any]:
-        """Retrieves the ingestion state for a source."""
+    def get_checkpoint(self, source_id: str) -> Optional[Dict[str, Any]]:
         index_name = "ingestion_checkpoints"
         try:
             response = self.client.get(index=index_name, id=source_id)

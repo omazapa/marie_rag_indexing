@@ -1,10 +1,11 @@
 from sqlalchemy import create_engine, text
 from typing import List, Dict, Any, Generator
-from .base import BasePlugin, Document
+from ...application.ports.data_source import DataSourcePort
+from ...domain.models import Document
 
-class SQLPlugin(BasePlugin):
+class SQLAdapter(DataSourcePort):
     """
-    Plugin to ingest documents from a SQL database.
+    Adapter to ingest documents from a SQL database.
     """
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)

@@ -5,7 +5,6 @@ from langchain_text_splitters import (
     TokenTextSplitter,
     MarkdownHeaderTextSplitter
 )
-from langchain_community.document_loaders import TextLoader
 from pydantic import BaseModel
 
 class ChunkConfig(BaseModel):

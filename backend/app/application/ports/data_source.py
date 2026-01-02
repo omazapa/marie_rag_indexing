@@ -1,15 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Generator
-from pydantic import BaseModel
+from typing import Any, Dict, Generator
+from ...domain.models import Document
 
-class Document(BaseModel):
-    content: str
-    metadata: Dict[str, Any]
-    source_id: str
-
-class BasePlugin(ABC):
+class DataSourcePort(ABC):
     """
-    Base class for all data source plugins.
+    Port for all data source adapters.
     """
     
     def __init__(self, config: Dict[str, Any]):

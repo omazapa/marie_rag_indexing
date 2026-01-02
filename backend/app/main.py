@@ -3,23 +3,28 @@ from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-from .plugins.local_file import LocalFilePlugin
-from .plugins.web_scraper import WebScraperPlugin
-from .plugins.s3_plugin import S3Plugin
-from .plugins.mongodb_plugin import MongoDBPlugin
-from .plugins.sql_plugin import SQLPlugin
-from .core.orchestrator import IngestionOrchestrator
-from .core.chunking import ChunkConfig
-from .core.logs import log_manager, stream_logs
-from .core.models_search import search_huggingface_models, search_ollama_models
-from .core.assistant import ConnectorAssistant
+
+# Hexagonal Architecture Imports
+from .infrastructure.adapters.data_sources.local_file import LocalFileAdapter
+from .infrastructure.adapters.data_sources.mongodb import MongoDBAdapter
+from .infrastructure.adapters.data_sources.s3 import S3Adapter
+from .infrastructure.adapters.data_sources.sql import SQLAdapter
+from .infrastructure.adapters.data_sources.web_scraper import WebScraperAdapter
+
+from .infrastructure.adapters.vector_stores.opensearch import OpenSearchAdapter
+from .application.services.orchestrator import IngestionOrchestrator
+from .application.services.chunking import ChunkConfig
+from .infrastructure.logging.log_manager import log_manager, stream_logs
+from .infrastructure.external_apis.model_search import search_huggingface_models, search_ollama_models
+from .application.services.assistant import ConnectorAssistant
+
 from pymongo import MongoClient
 
 load_dotenv()
 
 # In-memory storage for demo purposes
 data_sources = [
-    {"id": "1", "name": "Local Docs", "type": "local_file", "status": "active", "lastRun": "2025-12-23 10:00", "config": {"base_path": "./docs"}},
+    {"id": "1", "name": "Local Docs", "type": "local_file", "status": "active", "lastRun": "2025-12-23 10:00", "config": {"path": "./docs"}},
 ]
 
 embedding_models = [
@@ -222,24 +227,29 @@ def create_app():
         execution_mode = data.get("execution_mode", "sequential")
         max_workers = data.get("max_workers", 4)
 
+        # Adapter Selection
         if plugin_id == "local_file":
-            plugin = LocalFilePlugin(config)
-        elif plugin_id == "web_scraper":
-            plugin = WebScraperPlugin(config)
+            data_source = LocalFileAdapter(config)
         elif plugin_id == "s3":
-            plugin = S3Plugin(config)
+            data_source = S3Adapter(config)
         elif plugin_id == "mongodb":
-            plugin = MongoDBPlugin(config)
+            data_source = MongoDBAdapter(config)
         elif plugin_id == "sql":
-            plugin = SQLPlugin(config)
+            data_source = SQLAdapter(config)
+        elif plugin_id == "web_scraper":
+            data_source = WebScraperAdapter(config)
         else:
-            return jsonify({"status": "error", "message": "Plugin not supported yet"}), 400
+            return jsonify({"status": "error", "message": f"Plugin {plugin_id} not supported yet in hexagonal structure"}), 400
+
+        # Vector Store Selection (Default to OpenSearch for now)
+        vector_store = OpenSearchAdapter()
 
         chunk_config = ChunkConfig(**chunk_settings)
         orchestrator = IngestionOrchestrator(
-            plugin, 
-            chunk_config, 
-            index_name,
+            data_source=data_source,
+            vector_store=vector_store,
+            chunk_config=chunk_config, 
+            index_name=index_name,
             embedding_model=embedding_model,
             embedding_provider=embedding_provider,
             embedding_config=embedding_config,

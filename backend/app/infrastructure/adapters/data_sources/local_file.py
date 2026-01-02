@@ -1,10 +1,11 @@
 import os
 from typing import Any, Dict, Generator
-from .base import BasePlugin, Document
+from ...application.ports.data_source import DataSourcePort
+from ...domain.models import Document
 
-class LocalFilePlugin(BasePlugin):
+class LocalFileAdapter(DataSourcePort):
     """
-    Plugin to load documents from the local file system.
+    Adapter to load documents from the local file system.
     """
 
     @property
