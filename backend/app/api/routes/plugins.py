@@ -96,32 +96,137 @@ def list_mongodb_collections():
 
 @plugins_bp.route("/mongodb/schema", methods=["GET"])
 def get_mongodb_schema():
-    """Get schema from a MongoDB collection based on a sample document."""
+    """Analyze schema from a MongoDB collection using aggregation pipeline."""
     conn_str = request.args.get("connection_string")
     db_name = request.args.get("database")
     coll_name = request.args.get("collection")
+
     if not conn_str or not db_name or not coll_name:
         return jsonify({"error": "Missing parameters"}), 400
+
     try:
         client: MongoClient[Any] = MongoClient(conn_str, serverSelectionTimeoutMS=5000)
         db = client[db_name]
         collection = db[coll_name]
-        sample = collection.find_one()
-        if not sample:
-            return jsonify({"schema": [], "message": "Collection is empty"}), 200
 
-        def flatten_schema(doc, prefix=""):
-            paths = []
-            for key, value in doc.items():
-                full_path = f"{prefix}{key}"
-                paths.append(full_path)
-                if isinstance(value, dict):
-                    paths.extend(flatten_schema(value, f"{full_path}."))
-                elif isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
-                    paths.extend(flatten_schema(value[0], f"{full_path}."))
-            return paths
+        # Get collection stats
+        stats = db.command("collStats", coll_name)
+        doc_count = stats.get("count", 0)
 
-        schema = flatten_schema(sample)
-        return jsonify({"schema": schema, "sample": str(sample)}), 200
+        if doc_count == 0:
+            return jsonify(
+                {"schema": {}, "totalDocuments": 0, "message": "Collection is empty"}
+            ), 200
+
+        # Sample size: up to 100 documents or all if less
+        sample_size = min(100, doc_count)
+
+        # Use aggregation pipeline to analyze schema
+        pipeline = [{"$sample": {"size": sample_size}}, {"$project": {"document": "$$ROOT"}}]
+
+        # Analyze field types and presence
+        field_analysis: dict[str, Any] = {}
+
+        for doc in collection.aggregate(pipeline):
+            analyze_document(doc["document"], field_analysis, sample_size)
+
+        # Build schema result
+        schema_result = build_schema_result(field_analysis, sample_size)
+
+        # Get one sample document for preview
+        sample_doc = collection.find_one()
+
+        return jsonify(
+            {
+                "schema": schema_result,
+                "totalDocuments": doc_count,
+                "sampledDocuments": sample_size,
+                "sampleDocument": sample_doc,
+            }
+        ), 200
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+def get_value_type(value: Any) -> str:
+    """Determine the type of a value."""
+    type_map = {
+        type(None): "null",
+        bool: "bool",
+        int: "int",
+        float: "double",
+        str: "string",
+        dict: "object",
+        list: "array",
+    }
+    return type_map.get(type(value), type(value).__name__)
+
+
+def analyze_document(
+    doc: dict[str, Any], field_analysis: dict[str, Any], total_samples: int, prefix: str = ""
+) -> None:
+    """Recursively analyze document structure and field types."""
+    for key, value in doc.items():
+        if key == "_id" and not prefix:
+            continue
+
+        full_path = f"{prefix}{key}" if prefix else key
+
+        if full_path not in field_analysis:
+            field_analysis[full_path] = {
+                "types": {},
+                "count": 0,
+                "nested": isinstance(value, dict),
+                "array": isinstance(value, list),
+            }
+
+        field_analysis[full_path]["count"] += 1
+        value_type = get_value_type(value)
+
+        # Handle nested structures
+        if isinstance(value, dict):
+            analyze_document(value, field_analysis, total_samples, f"{full_path}.")
+        elif isinstance(value, list) and len(value) > 0:
+            first_elem = value[0]
+            if isinstance(first_elem, dict):
+                analyze_document(first_elem, field_analysis, total_samples, f"{full_path}.")
+            else:
+                field_analysis[full_path]["array_of"] = type(first_elem).__name__
+
+        # Increment type counter
+        if value_type in field_analysis[full_path]["types"]:
+            field_analysis[full_path]["types"][value_type] += 1
+        else:
+            field_analysis[full_path]["types"][value_type] = 1
+
+
+def build_schema_result(field_analysis: dict[str, Any], total_samples: int) -> dict[str, Any]:
+    """Build final schema result with field information."""
+    result = {}
+
+    for field_path, info in field_analysis.items():
+        # Calculate percentage present
+        percentage = (info["count"] / total_samples) * 100
+
+        # Get primary type (most common)
+        primary_type = (
+            max(info["types"].items(), key=lambda x: x[1])[0] if info["types"] else "unknown"
+        )
+
+        # Get all types if multiple
+        all_types = list(info["types"].keys())
+
+        result[field_path] = {
+            "type": primary_type,
+            "types": all_types if len(all_types) > 1 else [primary_type],
+            "presence": round(percentage, 2),
+            "count": info["count"],
+            "isNested": info.get("nested", False),
+            "isArray": info.get("array", False),
+        }
+
+        if "array_of" in info:
+            result[field_path]["arrayElementType"] = info["array_of"]
+
+    return result
