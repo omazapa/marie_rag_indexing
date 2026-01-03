@@ -75,8 +75,13 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
 
     setIsLoadingDbs(true);
     setConnectionStatus('idle');
+
+    console.log('Testing MongoDB connection:', connectionString);
+
     try {
       const result = await mongodbService.getDatabases(connectionString);
+      console.log('MongoDB connection successful:', result);
+
       setDatabases(result.databases);
       setIsConnected(true);
       setConnectionStatus('success');
@@ -85,26 +90,33 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
         icon: <CheckCircle2 size={16} className="text-green-500" />,
       });
     } catch (error: unknown) {
-      console.error('MongoDB Error:', error);
+      console.error('MongoDB Connection Error:', error);
       setIsConnected(false);
       setConnectionStatus('error');
+      setDatabases([]);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const axiosError = error as any;
-      let errMsg = 'Network Error or Backend Unreachable';
+      let errMsg = 'Unknown error occurred';
 
       if (axiosError.response) {
+        // Server responded with error
+        console.error('Server error response:', axiosError.response);
         errMsg = axiosError.response.data?.error || `Server Error (${axiosError.response.status})`;
       } else if (axiosError.request) {
-        errMsg = 'No response from backend. Check if the backend container is running.';
-      } else {
-        errMsg = axiosError.message || 'Unknown error';
+        // Request made but no response
+        console.error('No response from server:', axiosError.request);
+        errMsg = 'No response from backend. Check if the backend is running on port 5001.';
+      } else if (axiosError.message) {
+        // Error setting up request
+        console.error('Request setup error:', axiosError.message);
+        errMsg = axiosError.message;
       }
 
       message.error({
         content: `Connection failed: ${errMsg}`,
         icon: <AlertCircle size={16} className="text-red-500" />,
-        duration: 5,
+        duration: 8,
       });
     } finally {
       setIsLoadingDbs(false);
@@ -213,9 +225,10 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
                 name="connection_string"
                 rules={[{ required: true, message: 'Connection URI is required' }]}
                 className="mb-0"
+                initialValue="mongodb://192.168.1.10:27017"
               >
                 <Input.Password
-                  placeholder="mongodb://user:pass@host:port"
+                  placeholder="mongodb://user:pass@host:port or mongodb://host:port"
                   prefix={<Database size={14} />}
                   size="large"
                 />

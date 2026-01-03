@@ -61,12 +61,15 @@ export default function SourcesPage() {
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [configStep, setConfigStep] = useState(0);
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
   const [isAssistantModalOpen, setIsAssistantModalOpen] = useState(false);
   const [assistantPrompt, setAssistantPrompt] = useState('');
   const [isAssistantLoading, setIsAssistantLoading] = useState(false);
   const [selectedSourceForIngest, setSelectedSourceForIngest] = useState<DataSource | null>(null);
+  const [selectedSourceForEdit, setSelectedSourceForEdit] = useState<DataSource | null>(null);
+  const [editForm] = Form.useForm();
   const [form] = Form.useForm();
   const [ingestForm] = Form.useForm();
   const chunkStrategy = Form.useWatch('strategy', ingestForm);
@@ -188,6 +191,34 @@ export default function SourcesPage() {
     }
   });
 
+  // Update Source Mutation
+  const updateSourceMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<DataSource> }) =>
+      sourceService.updateSource(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sources'] });
+      setIsEditModalOpen(false);
+      editForm.resetFields();
+      setSelectedSourceForEdit(null);
+      message.success('Data source updated successfully');
+    },
+    onError: () => {
+      message.error('Failed to update data source');
+    }
+  });
+
+  // Delete Source Mutation
+  const deleteSourceMutation = useMutation({
+    mutationFn: sourceService.deleteSource,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sources'] });
+      message.success('Data source deleted successfully');
+    },
+    onError: () => {
+      message.error('Failed to delete data source');
+    }
+  });
+
   // Trigger Ingestion Mutation
   const ingestMutation = useMutation({
     mutationFn: ingestionService.triggerIngestion,
@@ -275,29 +306,47 @@ export default function SourcesPage() {
       align: 'right' as const,
       render: (_: unknown, record: DataSource) => (
         <Space size="small">
-          <Button
-            type="primary"
-            size="small"
-            icon={<Play size={14} />}
-            loading={ingestMutation.isPending && selectedSourceForIngest?.id === record.id}
-            onClick={() => {
-              setSelectedSourceForIngest(record);
-              setIsIngestModalOpen(true);
-              ingestForm.setFieldsValue({
-                strategy: 'recursive',
-                chunk_size: 1000,
-                chunk_overlap: 200,
-                index_name: record.name.toLowerCase().replace(/\s+/g, '_'),
-                embedding_model_id: availableModels?.[0]?.id,
-                execution_mode: 'sequential',
-                max_workers: 4
-              });
-            }}
-          >
-            Run
-          </Button>
-          <Button type="text" size="small" icon={<Settings size={14} />} />
-          <Button type="text" size="small" danger icon={<Trash2 size={14} />} />
+          <Tooltip title="Run Ingestion">
+            <Button
+              type="primary"
+              size="small"
+              icon={<Play size={14} />}
+              loading={ingestMutation.isPending && selectedSourceForIngest?.id === record.id}
+              onClick={() => {
+                setSelectedSourceForIngest(record);
+                setIsIngestModalOpen(true);
+                ingestForm.setFieldsValue({
+                  strategy: 'recursive',
+                  chunk_size: 1000,
+                  chunk_overlap: 200,
+                  index_name: record.name.toLowerCase().replace(/\s+/g, '_'),
+                  embedding_model_id: availableModels?.[0]?.id,
+                  execution_mode: 'sequential',
+                  max_workers: 4
+                });
+              }}
+            >
+              Run
+            </Button>
+          </Tooltip>
+          <Tooltip title="Edit Source">
+            <Button
+              type="text"
+              size="small"
+              icon={<Settings size={14} />}
+              onClick={() => handleOpenEditModal(record)}
+            />
+          </Tooltip>
+          <Tooltip title="Delete Source">
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<Trash2 size={14} />}
+              loading={deleteSourceMutation.isPending}
+              onClick={() => handleDeleteSource(record)}
+            />
+          </Tooltip>
         </Space>
       ),
     },
@@ -325,6 +374,55 @@ export default function SourcesPage() {
       type: type as string,
       config: typedConfig,
       status: 'active'
+    });
+  };
+
+  const handleEditSource = (values: Record<string, unknown>) => {
+    if (!selectedSourceForEdit) return;
+
+    const { name, ...config } = values;
+    const typedConfig = config as Record<string, unknown>;
+
+    // Handle special cases like JSON strings in config
+    Object.keys(typedConfig).forEach(key => {
+      const val = typedConfig[key];
+      if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
+        try {
+          typedConfig[key] = JSON.parse(val);
+        } catch {
+          // Keep as string if not valid JSON
+        }
+      }
+    });
+
+    updateSourceMutation.mutate({
+      id: selectedSourceForEdit.id,
+      data: {
+        name: name as string,
+        config: typedConfig
+      }
+    });
+  };
+
+  const handleDeleteSource = (source: DataSource) => {
+    modal.confirm({
+      title: 'Delete Data Source',
+      content: `Are you sure you want to delete "${source.name}"? This action cannot be undone.`,
+      okText: 'Delete',
+      okType: 'danger',
+      onOk: () => {
+        deleteSourceMutation.mutate(source.id);
+      },
+      icon: <AlertCircle size={20} className="text-red-500" />
+    });
+  };
+
+  const handleOpenEditModal = (source: DataSource) => {
+    setSelectedSourceForEdit(source);
+    setIsEditModalOpen(true);
+    editForm.setFieldsValue({
+      name: source.name,
+      ...source.config
     });
   };
 
@@ -440,149 +538,179 @@ export default function SourcesPage() {
           setConfigStep(0);
           form.resetFields();
         }}
-        width={700}
-        footer={[
-          <Button key="cancel" onClick={() => setIsModalOpen(false)}>
-            Cancel
-          </Button>,
-          configStep > 0 && (
+        width={sourceType === 'mongodb' ? 800 : 700}
+        footer={
+          sourceType === 'mongodb' ? [
+            <Button key="cancel" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>,
             <Button
-              key="back"
-              onClick={() => setConfigStep(configStep - 1)}
-            >
-              Back
-            </Button>
-          ),
-          configStep === 0 && (
-            <Button
-              key="next"
+              key="submit"
               type="primary"
-              onClick={() => {
-                if (!sourceType) {
-                  message.warning('Please select a source type');
-                  return;
-                }
-                setConfigStep(1);
-              }}
+              loading={addSourceMutation.isPending}
+              onClick={() => form.submit()}
+              icon={<CheckCircle2 size={14} />}
             >
-              Next: Configuration
+              Add Source
             </Button>
-          ),
-          configStep === 1 && (
-            <>
+          ] : [
+            <Button key="cancel" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>,
+            configStep > 0 && (
               <Button
-                key="test"
-                loading={isTestingConnection}
-                onClick={handleTestConnection}
-                disabled={!pluginSchema || sourceType === 'mongodb'}
-                style={sourceType === 'mongodb' ? { display: 'none' } : {}}
+                key="back"
+                onClick={() => setConfigStep(configStep - 1)}
               >
-                Test Connection
+                Back
               </Button>
+            ),
+            configStep === 0 && (
               <Button
-                key="submit"
+                key="next"
                 type="primary"
-                loading={addSourceMutation.isPending}
-                onClick={() => form.submit()}
-                icon={<CheckCircle2 size={14} />}
+                onClick={() => {
+                  if (!sourceType) {
+                    message.warning('Please select a source type');
+                    return;
+                  }
+                  setConfigStep(1);
+                }}
               >
-                Add Source
+                Next: Configuration
               </Button>
-            </>
-          )
-        ]}
+            ),
+            configStep === 1 && (
+              <>
+                <Button
+                  key="test"
+                  loading={isTestingConnection}
+                  onClick={handleTestConnection}
+                  disabled={!pluginSchema}
+                >
+                  Test Connection
+                </Button>
+                <Button
+                  key="submit"
+                  type="primary"
+                  loading={addSourceMutation.isPending}
+                  onClick={() => form.submit()}
+                  icon={<CheckCircle2 size={14} />}
+                >
+                  Add Source
+                </Button>
+              </>
+            )
+          ]
+        }
       >
-        <Steps
-          current={configStep}
-          className="mb-6"
-          items={[
-            {
-              title: 'Source Type',
-              icon: <DbIcon size={16} />,
-            },
-            {
-              title: 'Configuration',
-              icon: <Settings size={16} />,
-            },
-          ]}
-        />
+        {sourceType !== 'mongodb' && (
+          <Steps
+            current={configStep}
+            className="mb-6"
+            items={[
+              {
+                title: 'Source Type',
+                icon: <DbIcon size={16} />,
+              },
+              {
+                title: 'Configuration',
+                icon: <Settings size={16} />,
+              },
+            ]}
+          />
+        )}
 
         <Form form={form} layout="vertical" onFinish={handleAddSource}>
-          {configStep === 0 && (
+          {sourceType === 'mongodb' ? (
+            // MongoDB shows its config directly without wizard steps
             <>
               <Form.Item name="name" label="Source Name" rules={[{ required: true }]}>
-                <Input placeholder="e.g. Documentation Database" prefix={<FileText size={16} />} />
+                <Input placeholder="e.g. MongoDB Production Database" prefix={<FileText size={16} />} />
               </Form.Item>
-              <Form.Item
-                name="type"
-                label={
-                  <Space>
-                    <span>Source Type</span>
-                    <InfoTooltip
-                      title="Source Type"
-                      content="Choose the type of data source you want to connect. Each type has specific requirements and optimizations for RAG."
-                    />
-                  </Space>
-                }
-                rules={[{ required: true }]}
-              >
-                <Select
-                  placeholder="Select a plugin"
-                  onChange={(value) => {
-                    fetchPluginSchema(value);
-                  }}
-                  size="large"
-                >
-                  {plugins
-                    ?.filter(plugin => plugin.id !== 'local_file')
-                    .map(plugin => (
-                      <Select.Option key={plugin.id} value={plugin.id}>
-                        <Space>
-                          {getSourceIcon(plugin.id)}
-                          <span>{plugin.name}</span>
-                        </Space>
-                      </Select.Option>
-                    ))}
-                </Select>
+              <Form.Item name="type" initialValue="mongodb" hidden>
+                <Input />
               </Form.Item>
-
-              {sourceType && (
-                <Alert
-                  message={`${sourceType.toUpperCase().replace('_', ' ')} Configuration`}
-                  description={getSourceDescription(sourceType)}
-                  type="info"
-                  showIcon
-                  icon={getSourceIcon(sourceType)}
-                />
-              )}
+              <MongoDBConfigForm form={form} />
             </>
-          )}
-
-          {configStep === 1 && pluginSchema && (
-            <div className="space-y-4">
-              {sourceType === 'mongodb' ? (
-                <MongoDBConfigForm form={form} />
-              ) : sourceType === 'sql' ? (
-                <SQLConfigForm />
-              ) : sourceType === 's3' ? (
-                <S3ConfigForm />
-              ) : sourceType === 'web_scraper' ? (
-                <WebScraperConfigForm />
-              ) : sourceType === 'google_drive' ? (
-                <GoogleDriveConfigForm />
-              ) : (
+          ) : (
+            // Other sources use the wizard with steps
+            <>
+              {configStep === 0 && (
                 <>
-                  <Alert
-                    message="Connection Configuration"
-                    description="Provide the necessary credentials and settings to connect to your data source."
-                    type="info"
-                    showIcon
-                    className="mb-4"
-                  />
-                  <DynamicConfigForm schema={pluginSchema} />
+                  <Form.Item name="name" label="Source Name" rules={[{ required: true }]}>
+                    <Input placeholder="e.g. Documentation Database" prefix={<FileText size={16} />} />
+                  </Form.Item>
+                  <Form.Item
+                    name="type"
+                    label={
+                      <Space>
+                        <span>Source Type</span>
+                        <InfoTooltip
+                          title="Source Type"
+                          content="Choose the type of data source you want to connect. Each type has specific requirements and optimizations for RAG."
+                        />
+                      </Space>
+                    }
+                    rules={[{ required: true }]}
+                  >
+                    <Select
+                      placeholder="Select a plugin"
+                      onChange={(value) => {
+                        fetchPluginSchema(value);
+                      }}
+                      size="large"
+                    >
+                      {plugins
+                        ?.filter(plugin => plugin.id !== 'local_file')
+                        .map(plugin => (
+                          <Select.Option key={plugin.id} value={plugin.id}>
+                            <Space>
+                              {getSourceIcon(plugin.id)}
+                              <span>{plugin.name}</span>
+                            </Space>
+                          </Select.Option>
+                        ))}
+                    </Select>
+                  </Form.Item>
+
+                  {sourceType && (
+                    <Alert
+                      message={`${sourceType.toUpperCase().replace('_', ' ')} Configuration`}
+                      description={getSourceDescription(sourceType)}
+                      type="info"
+                      showIcon
+                      icon={getSourceIcon(sourceType)}
+                    />
+                  )}
                 </>
               )}
-            </div>
+
+              {configStep === 1 && pluginSchema && (
+                <div className="space-y-4">
+                  {sourceType === 'sql' ? (
+                    <SQLConfigForm />
+                  ) : sourceType === 's3' ? (
+                    <S3ConfigForm />
+                  ) : sourceType === 'web_scraper' ? (
+                    <WebScraperConfigForm />
+                  ) : sourceType === 'google_drive' ? (
+                    <GoogleDriveConfigForm />
+                  ) : (
+                    <>
+                      <Alert
+                        message="Connection Configuration"
+                        description="Provide the necessary credentials and settings to connect to your data source."
+                        type="info"
+                        showIcon
+                        className="mb-4"
+                      />
+                      <DynamicConfigForm schema={pluginSchema} />
+                    </>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </Form>
       </Modal>
@@ -714,6 +842,76 @@ export default function SourcesPage() {
               </Select>
             </Form.Item>
           ) : null}
+        </Form>
+      </Modal>
+
+      {/* Edit Source Modal */}
+      <Modal
+        title={
+          <Space>
+            <Settings size={20} className="text-blue-600" />
+            <span>Edit Data Source: {selectedSourceForEdit?.name}</span>
+          </Space>
+        }
+        open={isEditModalOpen}
+        onCancel={() => {
+          setIsEditModalOpen(false);
+          setSelectedSourceForEdit(null);
+          editForm.resetFields();
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => {
+            setIsEditModalOpen(false);
+            setSelectedSourceForEdit(null);
+            editForm.resetFields();
+          }}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={updateSourceMutation.isPending}
+            onClick={() => editForm.submit()}
+            icon={<CheckCircle2 size={14} />}
+          >
+            Save Changes
+          </Button>
+        ]}
+        width={selectedSourceForEdit?.type === 'mongodb' ? 800 : 600}
+      >
+        <Alert
+          message="Editing Configuration"
+          description={`You are editing the configuration for ${selectedSourceForEdit?.name}. Changes will be applied immediately.`}
+          type="info"
+          showIcon
+          className="mb-4"
+        />
+
+        <Form form={editForm} layout="vertical" onFinish={handleEditSource}>
+          <Form.Item name="name" label="Source Name" rules={[{ required: true }]}>
+            <Input placeholder="e.g. Production Database" prefix={<FileText size={16} />} />
+          </Form.Item>
+
+          <Divider />
+
+          {selectedSourceForEdit?.type === 'mongodb' ? (
+            <MongoDBConfigForm form={editForm} />
+          ) : selectedSourceForEdit?.type === 'sql' ? (
+            <SQLConfigForm />
+          ) : selectedSourceForEdit?.type === 's3' ? (
+            <S3ConfigForm />
+          ) : selectedSourceForEdit?.type === 'web_scraper' ? (
+            <WebScraperConfigForm />
+          ) : selectedSourceForEdit?.type === 'google_drive' ? (
+            <GoogleDriveConfigForm />
+          ) : (
+            <Alert
+              message="Generic Configuration"
+              description="Edit the configuration fields below. Some fields may require specific formats."
+              type="warning"
+              showIcon
+            />
+          )}
         </Form>
       </Modal>
 

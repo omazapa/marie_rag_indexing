@@ -58,6 +58,43 @@ def add_source():
     return jsonify(new_source), 201
 
 
+@sources_bp.route("/sources/<source_id>", methods=["PUT"])
+def update_source(source_id: str):
+    """Update an existing data source configuration."""
+    data = request.json
+
+    # Find the source
+    source = next((s for s in data_sources if s["id"] == source_id), None)
+    if not source:
+        return jsonify({"error": "Source not found"}), 404
+
+    # Update fields
+    if "name" in data:
+        source["name"] = data["name"]
+    if "config" in data:
+        source["config"] = data["config"]
+    if "status" in data:
+        source["status"] = data["status"]
+
+    return jsonify(source), 200
+
+
+@sources_bp.route("/sources/<source_id>", methods=["DELETE"])
+def delete_source(source_id: str):
+    """Delete a data source configuration."""
+    global data_sources
+
+    # Find the source
+    source = next((s for s in data_sources if s["id"] == source_id), None)
+    if not source:
+        return jsonify({"error": "Source not found"}), 404
+
+    # Remove from list
+    data_sources = [s for s in data_sources if s["id"] != source_id]
+
+    return jsonify({"message": "Source deleted successfully"}), 200
+
+
 @sources_bp.route("/sources/test-connection", methods=["POST"])
 def test_source_connection():
     """Test connection to a data source without saving it."""
