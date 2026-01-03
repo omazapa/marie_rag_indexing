@@ -16,10 +16,28 @@ import {
   Spin,
   Divider,
   InputNumber,
-  Breadcrumb,
-  Flex
+  Flex,
+  Alert,
+  Steps,
+  Tooltip,
 } from 'antd';
-import { Plus, Play, Settings, Trash2, Bot, Database as DbIcon, Globe, Folder, Info } from 'lucide-react';
+import {
+  Plus,
+  Play,
+  Settings,
+  Trash2,
+  Bot,
+  Database as DbIcon,
+  Globe,
+  Folder,
+  Info,
+  CheckCircle2,
+  AlertCircle,
+  Upload,
+  Server,
+  Cloud,
+  FileText,
+} from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sourceService, DataSource } from '@/services/sourceService';
 import { pluginService, ConfigSchema } from '@/services/pluginService';
@@ -31,8 +49,10 @@ import { vectorStoreService } from '@/services/vectorStoreService';
 import { DynamicConfigForm } from '@/components/DynamicConfigForm';
 import { MongoDBConfigForm } from '@/components/MongoDBConfigForm';
 import { EmptyState } from '@/components/EmptyState';
+import { PageHeader } from '@/components/PageHeader';
+import { StatusIndicator } from '@/components/StatusIndicator';
+import { InfoTooltip } from '@/components/InfoTooltip';
 import { Prompts } from '@ant-design/x';
-import Link from 'next/link';
 
 const { Title, Text } = Typography;
 
@@ -40,6 +60,7 @@ export default function SourcesPage() {
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [configStep, setConfigStep] = useState(0);
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
   const [isAssistantModalOpen, setIsAssistantModalOpen] = useState(false);
   const [assistantPrompt, setAssistantPrompt] = useState('');
@@ -178,6 +199,44 @@ export default function SourcesPage() {
     }
   });
 
+  // Helper function to get icon for source type
+  const getSourceIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'mongodb':
+      case 'sql':
+        return <DbIcon size={16} className="text-blue-500" />;
+      case 'web_scraper':
+        return <Globe size={16} className="text-green-500" />;
+      case 's3':
+      case 'google_drive':
+        return <Cloud size={16} className="text-purple-500" />;
+      case 'local_file':
+        return <Folder size={16} className="text-orange-500" />;
+      default:
+        return <FileText size={16} className="text-gray-500" />;
+    }
+  };
+
+  // Helper function to get description for source type
+  const getSourceDescription = (type: string): string => {
+    switch (type.toLowerCase()) {
+      case 'sql':
+        return 'Connect to PostgreSQL, MySQL, or other SQL databases. Extract data from tables with customizable queries. Best for structured content with rich metadata.';
+      case 'mongodb':
+        return 'Connect to MongoDB collections. Handle nested documents and arrays. Ideal for semi-structured content with flexible schemas.';
+      case 's3':
+        return 'Access documents from Amazon S3 or compatible storage. Supports multiple file formats (PDF, DOCX, TXT, MD). Perfect for document repositories.';
+      case 'web_scraper':
+        return 'Scrape content from websites and documentation. Configure URL patterns, depth, and content selectors. Great for online knowledge bases.';
+      case 'local_file':
+        return 'Index files from local filesystem or mounted volumes. Supports various formats with automatic detection. Useful for local documentation.';
+      case 'google_drive':
+        return 'Access Google Drive documents, spreadsheets, and PDFs. Includes metadata like owner and sharing info. Perfect for collaborative team documents.';
+      default:
+        return 'Configure your data source with the appropriate connection settings.';
+    }
+  };
+
   const columns = [
     {
       title: 'Source',
@@ -185,9 +244,7 @@ export default function SourcesPage() {
       key: 'name',
       render: (text: string, record: DataSource) => (
         <Space>
-          {record.type === 'mongodb' || record.type === 'sql' ? <DbIcon size={16} className="text-blue-500" /> :
-           record.type === 'web_scraper' ? <Globe size={16} className="text-green-500" /> :
-           <Folder size={16} className="text-orange-500" />}
+          {getSourceIcon(record.type)}
           <Text strong>{text}</Text>
         </Space>
       ),
@@ -196,17 +253,17 @@ export default function SourcesPage() {
       title: 'Type',
       dataIndex: 'type',
       key: 'type',
-      render: (type: string) => <Tag color="blue">{type.toUpperCase()}</Tag>,
+      render: (type: string) => <Tag color="blue">{type.toUpperCase().replace('_', ' ')}</Tag>,
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
-        <Flex align="center" gap={8}>
-          <div className={`w-2 h-2 rounded-full ${status === 'active' ? 'bg-green-500' : status === 'error' ? 'bg-red-500' : 'bg-gray-400'}`} />
-          <Text type="secondary" className="text-xs">{status.toUpperCase()}</Text>
-        </Flex>
+        <StatusIndicator
+          status={status === 'active' ? 'success' : status === 'error' ? 'error' : 'warning'}
+          text={status.toUpperCase()}
+        />
       ),
     },
     {
@@ -279,32 +336,47 @@ export default function SourcesPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <Breadcrumb
-        items={[
-          { title: <Link href="/">Dashboard</Link> },
+    <div className="space-y-6">
+      <PageHeader
+        title="Data Sources"
+        description="Connect and manage your data origins for the RAG pipeline"
+        icon={DbIcon}
+        breadcrumbs={[
+          { title: 'Dashboard', href: '/' },
           { title: 'Data Sources' },
         ]}
+        extra={
+          <Space>
+            <Button
+              icon={<Bot size={16} />}
+              onClick={() => setIsAssistantModalOpen(true)}
+              className="border-purple-200 text-purple-600 hover:text-purple-700 hover:border-purple-300"
+            >
+              AI Assistant
+            </Button>
+            <Button type="primary" icon={<Plus size={16} />} onClick={() => setIsModalOpen(true)}>
+              Add Source
+            </Button>
+          </Space>
+        }
       />
 
-      <div className="flex justify-between items-end">
-        <div>
-          <Title level={2}>Data Sources</Title>
-          <Text type="secondary">Connect and manage your data origins for the RAG pipeline.</Text>
-        </div>
-        <Space>
-          <Button
-            icon={<Bot size={16} />}
-            onClick={() => setIsAssistantModalOpen(true)}
-            className="border-purple-200 text-purple-600 hover:text-purple-700 hover:border-purple-300"
-          >
-            AI Assistant
-          </Button>
-          <Button type="primary" icon={<Plus size={16} />} onClick={() => setIsModalOpen(true)}>
-            Add Source
-          </Button>
-        </Space>
-      </div>
+      <Alert
+        message="RAG Data Sources"
+        description={
+          <div>
+            Configure your data origins to extract, chunk, and index content for retrieval-augmented generation.
+            Each source type has optimized settings for best RAG performance.
+            <a href="/docs/DATA_SOURCES_RAG_REQUIREMENTS.md" target="_blank" className="ml-2 text-blue-600 hover:text-blue-700">
+              View detailed requirements →
+            </a>
+          </div>
+        }
+        type="info"
+        icon={<Info size={16} />}
+        className="mb-6"
+        closable
+      />
 
       <Prompts
         title="Configuration Guide"
@@ -358,56 +430,145 @@ export default function SourcesPage() {
       </div>
 
       <Modal
-        title="Add New Data Source"
+        title={
+          <Space>
+            <DbIcon size={20} className="text-purple-600" />
+            <span>Add New Data Source</span>
+          </Space>
+        }
         open={isModalOpen}
         onCancel={() => {
           setIsModalOpen(false);
           setPluginSchema(null);
+          setConfigStep(0);
           form.resetFields();
         }}
+        width={700}
         footer={[
           <Button key="cancel" onClick={() => setIsModalOpen(false)}>
             Cancel
           </Button>,
-          <Button
-            key="test"
-            loading={isTestingConnection}
-            onClick={handleTestConnection}
-            disabled={!pluginSchema || sourceType === 'mongodb'}
-            style={sourceType === 'mongodb' ? { display: 'none' } : {}}
-          >
-            Test Connection
-          </Button>,
-          <Button
-            key="submit"
-            type="primary"
-            loading={addSourceMutation.isPending}
-            onClick={() => form.submit()}
-          >
-            Add Source
-          </Button>,
-        ]}
-      >
-        <Form form={form} layout="vertical" onFinish={handleAddSource}>
-          <Form.Item name="name" label="Source Name" rules={[{ required: true }]}>
-            <Input placeholder="e.g. Documentation Folder" />
-          </Form.Item>
-          <Form.Item name="type" label="Source Type" rules={[{ required: true }]}>
-            <Select
-              placeholder="Select a plugin"
-              onChange={(value) => {
-                fetchPluginSchema(value);
+          configStep > 0 && (
+            <Button
+              key="back"
+              onClick={() => setConfigStep(configStep - 1)}
+            >
+              Back
+            </Button>
+          ),
+          configStep === 0 && (
+            <Button
+              key="next"
+              type="primary"
+              onClick={() => {
+                if (!sourceType) {
+                  message.warning('Please select a source type');
+                  return;
+                }
+                setConfigStep(1);
               }}
             >
-              {plugins?.map(plugin => (
-                <Select.Option key={plugin.id} value={plugin.id}>{plugin.name}</Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
+              Next: Configuration
+            </Button>
+          ),
+          configStep === 1 && (
+            <>
+              <Button
+                key="test"
+                loading={isTestingConnection}
+                onClick={handleTestConnection}
+                disabled={!pluginSchema || sourceType === 'mongodb'}
+                style={sourceType === 'mongodb' ? { display: 'none' } : {}}
+              >
+                Test Connection
+              </Button>
+              <Button
+                key="submit"
+                type="primary"
+                loading={addSourceMutation.isPending}
+                onClick={() => form.submit()}
+                icon={<CheckCircle2 size={14} />}
+              >
+                Add Source
+              </Button>
+            </>
+          )
+        ]}
+      >
+        <Steps
+          current={configStep}
+          className="mb-6"
+          items={[
+            {
+              title: 'Source Type',
+              icon: <DbIcon size={16} />,
+            },
+            {
+              title: 'Configuration',
+              icon: <Settings size={16} />,
+            },
+          ]}
+        />
 
-          {pluginSchema && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-              <Text strong className="block mb-4">Configuration</Text>
+        <Form form={form} layout="vertical" onFinish={handleAddSource}>
+          {configStep === 0 && (
+            <>
+              <Form.Item name="name" label="Source Name" rules={[{ required: true }]}>
+                <Input placeholder="e.g. Documentation Database" prefix={<FileText size={16} />} />
+              </Form.Item>
+              <Form.Item
+                name="type"
+                label={
+                  <Space>
+                    <span>Source Type</span>
+                    <InfoTooltip
+                      title="Source Type"
+                      content="Choose the type of data source you want to connect. Each type has specific requirements and optimizations for RAG."
+                    />
+                  </Space>
+                }
+                rules={[{ required: true }]}
+              >
+                <Select
+                  placeholder="Select a plugin"
+                  onChange={(value) => {
+                    fetchPluginSchema(value);
+                  }}
+                  size="large"
+                >
+                  {plugins?.map(plugin => (
+                    <Select.Option key={plugin.id} value={plugin.id}>
+                      <Space>
+                        {getSourceIcon(plugin.id)}
+                        <span>{plugin.name}</span>
+                      </Space>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              {sourceType && (
+                <Alert
+                  message={`${sourceType.toUpperCase().replace('_', ' ')} Configuration`}
+                  description={getSourceDescription(sourceType)}
+                  type="info"
+                  showIcon
+                  icon={getSourceIcon(sourceType)}
+                />
+              )}
+            </>
+          )}
+
+          {configStep === 1 && pluginSchema && (
+            <div className="space-y-4">
+              <Alert
+                message="Connection Configuration"
+                description="Provide the necessary credentials and settings to connect to your data source."
+                type="info"
+                showIcon
+                className="mb-4"
+              />
+
               {sourceType === 'mongodb' ? (
                 <MongoDBConfigForm form={form} />
               ) : (
