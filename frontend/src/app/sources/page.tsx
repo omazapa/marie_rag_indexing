@@ -48,6 +48,7 @@ import { modelService } from '@/services/modelService';
 import { vectorStoreService } from '@/services/vectorStoreService';
 import { DynamicConfigForm } from '@/components/DynamicConfigForm';
 import { MongoDBConfigForm } from '@/components/MongoDBConfigForm';
+import { SQLConfigForm, S3ConfigForm, WebScraperConfigForm, GoogleDriveConfigForm } from '@/components/SourceConfigForms';
 import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusIndicator } from '@/components/StatusIndicator';
@@ -210,8 +211,6 @@ export default function SourcesPage() {
       case 's3':
       case 'google_drive':
         return <Cloud size={16} className="text-purple-500" />;
-      case 'local_file':
-        return <Folder size={16} className="text-orange-500" />;
       default:
         return <FileText size={16} className="text-gray-500" />;
     }
@@ -228,8 +227,6 @@ export default function SourcesPage() {
         return 'Access documents from Amazon S3 or compatible storage. Supports multiple file formats (PDF, DOCX, TXT, MD). Perfect for document repositories.';
       case 'web_scraper':
         return 'Scrape content from websites and documentation. Configure URL patterns, depth, and content selectors. Great for online knowledge bases.';
-      case 'local_file':
-        return 'Index files from local filesystem or mounted volumes. Supports various formats with automatic detection. Useful for local documentation.';
       case 'google_drive':
         return 'Access Google Drive documents, spreadsheets, and PDFs. Includes metadata like owner and sharing info. Perfect for collaborative team documents.';
       default:
@@ -536,14 +533,16 @@ export default function SourcesPage() {
                   }}
                   size="large"
                 >
-                  {plugins?.map(plugin => (
-                    <Select.Option key={plugin.id} value={plugin.id}>
-                      <Space>
-                        {getSourceIcon(plugin.id)}
-                        <span>{plugin.name}</span>
-                      </Space>
-                    </Select.Option>
-                  ))}
+                  {plugins
+                    ?.filter(plugin => plugin.id !== 'local_file')
+                    .map(plugin => (
+                      <Select.Option key={plugin.id} value={plugin.id}>
+                        <Space>
+                          {getSourceIcon(plugin.id)}
+                          <span>{plugin.name}</span>
+                        </Space>
+                      </Select.Option>
+                    ))}
                 </Select>
               </Form.Item>
 
@@ -561,18 +560,27 @@ export default function SourcesPage() {
 
           {configStep === 1 && pluginSchema && (
             <div className="space-y-4">
-              <Alert
-                message="Connection Configuration"
-                description="Provide the necessary credentials and settings to connect to your data source."
-                type="info"
-                showIcon
-                className="mb-4"
-              />
-
               {sourceType === 'mongodb' ? (
                 <MongoDBConfigForm form={form} />
+              ) : sourceType === 'sql' ? (
+                <SQLConfigForm />
+              ) : sourceType === 's3' ? (
+                <S3ConfigForm />
+              ) : sourceType === 'web_scraper' ? (
+                <WebScraperConfigForm />
+              ) : sourceType === 'google_drive' ? (
+                <GoogleDriveConfigForm />
               ) : (
-                <DynamicConfigForm schema={pluginSchema} />
+                <>
+                  <Alert
+                    message="Connection Configuration"
+                    description="Provide the necessary credentials and settings to connect to your data source."
+                    type="info"
+                    showIcon
+                    className="mb-4"
+                  />
+                  <DynamicConfigForm schema={pluginSchema} />
+                </>
               )}
             </div>
           )}
