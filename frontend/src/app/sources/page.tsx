@@ -715,8 +715,14 @@ export default function SourcesPage() {
         </Form>
       </Modal>
 
+      {/* Run Ingestion Modal */}
       <Modal
-        title={`Run Ingestion: ${selectedSourceForIngest?.name}`}
+        title={
+          <Space>
+            <Play size={20} className="text-green-600" />
+            <span>Run Ingestion: {selectedSourceForIngest?.name}</span>
+          </Space>
+        }
         open={isIngestModalOpen}
         onOk={() => ingestForm.submit()}
         onCancel={() => {
@@ -724,8 +730,18 @@ export default function SourcesPage() {
           setVsSchema(null);
         }}
         confirmLoading={ingestMutation.isPending}
-        width={600}
+        okText="Start Ingestion"
+        okButtonProps={{ icon: <Play size={14} /> }}
+        width={700}
       >
+        <Alert
+          message="RAG Pipeline Execution"
+          description="Configure the ingestion process: data extraction, chunking, embedding, and vector storage."
+          type="success"
+          showIcon
+          icon={<Upload size={16} />}
+          className="mb-4"
+        />
         <Form
           form={ingestForm}
           layout="vertical"
@@ -759,89 +775,177 @@ export default function SourcesPage() {
             });
           }}
         >
-          <Flex gap="middle">
-            <Form.Item name="vector_store" label="Vector Store" rules={[{ required: true }]} className="flex-1" initialValue="opensearch">
-              <Select
-                placeholder="Select vector store"
-                onChange={(value) => {
-                  fetchVsSchema(value);
-                }}
-              >
-                {vectorStores?.map(vs => (
-                  <Select.Option key={vs.id} value={vs.id}>{vs.name}</Select.Option>
+          {/* Destination Card */}
+          <Card
+            size="small"
+            className="mb-4"
+            style={{
+              borderLeft: '4px solid #1890ff',
+              backgroundColor: '#f0f8ff'
+            }}
+          >
+            <Text strong className="block mb-3" style={{ color: '#1890ff' }}>
+              📦 Destination
+            </Text>
+            <Flex gap="middle">
+              <Form.Item name="vector_store" label="Vector Store" rules={[{ required: true }]} className="flex-1 mb-0" initialValue="opensearch">
+                <Select
+                  placeholder="Select vector store"
+                  onChange={(value) => {
+                    fetchVsSchema(value);
+                  }}
+                >
+                  {vectorStores?.map(vs => (
+                    <Select.Option key={vs.id} value={vs.id}>{vs.name}</Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              <Form.Item name="index_name" label="Index Name" rules={[{ required: true }]} className="flex-1 mb-0">
+                <Input placeholder="e.g. documents_prod" prefix={<DbIcon size={14} />} />
+              </Form.Item>
+            </Flex>
+
+            {vsSchema && (
+              <div className="mt-3 p-3 bg-white rounded border border-blue-200">
+                <Text type="secondary" className="block mb-2 text-xs">Vector Store Configuration</Text>
+                <DynamicConfigForm schema={vsSchema} />
+              </div>
+            )}
+          </Card>
+
+          {/* Embedding Card */}
+          <Card
+            size="small"
+            className="mb-4"
+            style={{
+              borderLeft: '4px solid #52c41a',
+              backgroundColor: '#f6ffed'
+            }}
+          >
+            <Text strong className="block mb-3" style={{ color: '#52c41a' }}>
+              🧠 Embedding Model
+            </Text>
+            <Form.Item name="embedding_model_id" label="Model" rules={[{ required: true }]} className="mb-0">
+              <Select placeholder="Select embedding model">
+                {availableModels?.map(m => (
+                  <Select.Option key={m.id} value={m.id}>
+                    <Space>
+                      <Tag color="blue">{m.provider.toUpperCase()}</Tag>
+                      {m.name}
+                    </Space>
+                  </Select.Option>
                 ))}
               </Select>
             </Form.Item>
-            <Form.Item name="index_name" label="Index Name" rules={[{ required: true }]} className="flex-1">
-              <Input placeholder="my_index" />
+          </Card>
+
+          {/* Chunking Card */}
+          <Card
+            size="small"
+            className="mb-4"
+            style={{
+              borderLeft: '4px solid #fa8c16',
+              backgroundColor: '#fff7e6'
+            }}
+          >
+            <Text strong className="block mb-3" style={{ color: '#fa8c16' }}>
+              ✂️ Chunking Strategy
+            </Text>
+
+          <Form.Item name="strategy" label="Strategy" initialValue="recursive" className="mb-3">
+            <Select>
+              <Select.Option value="recursive">
+                <Space direction="vertical" size={0}>
+                  <Text strong>Recursive Character</Text>
+                  <Text type="secondary" className="text-xs">Recommended - Smart text splitting</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="character">
+                <Space direction="vertical" size={0}>
+                  <Text strong>Simple Character</Text>
+                  <Text type="secondary" className="text-xs">Basic fixed-size chunks</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="token">
+                <Space direction="vertical" size={0}>
+                  <Text strong>Token-based</Text>
+                  <Text type="secondary" className="text-xs">Optimized for LLM context</Text>
+                </Space>
+              </Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Flex gap="middle">
+            <Form.Item name="chunk_size" label="Chunk Size" initialValue={1000} className="flex-1 mb-0">
+              <InputNumber
+                min={100}
+                max={4000}
+                addonAfter={chunkStrategy === 'token' ? 'tokens' : 'chars'}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+            <Form.Item name="chunk_overlap" label="Overlap" initialValue={200} className="flex-1 mb-0">
+              <InputNumber
+                min={0}
+                max={500}
+                addonAfter={chunkStrategy === 'token' ? 'tokens' : 'chars'}
+                style={{ width: '100%' }}
+              />
             </Form.Item>
           </Flex>
 
-          {vsSchema && (
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-              <Text strong className="block mb-4">Vector Store Configuration</Text>
-              <DynamicConfigForm schema={vsSchema} />
-            </div>
+          {chunkStrategy === 'recursive' && (
+            <Form.Item name="separators" label="Custom Separators (optional)" className="mt-3 mb-0">
+              <Input placeholder='e.g. ["\\n\\n", "\\n", " "]' />
+            </Form.Item>
           )}
 
-          <Divider titlePlacement="left">Embedding & Execution</Divider>
-
-          <Form.Item name="embedding_model_id" label="Embedding Model" rules={[{ required: true }]}>
-            <Select placeholder="Select a configured model">
-              {availableModels?.map(m => (
-                <Select.Option key={m.id} value={m.id}>
-                  {m.name} ({m.provider.toUpperCase()}: {m.model})
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Flex gap="middle">
-            <Form.Item name="execution_mode" label="Execution Mode" initialValue="sequential" className="flex-1">
-              <Select>
-                <Select.Option value="sequential">Sequential</Select.Option>
-                <Select.Option value="parallel">Parallel</Select.Option>
-              </Select>
-            </Form.Item>
-            {executionMode === 'parallel' && (
-              <Form.Item name="max_workers" label="Max Workers (Jobs)" initialValue={4} className="flex-1">
-                <InputNumber min={1} max={16} style={{ width: '100%' }} />
-              </Form.Item>
-            )}
-          </Flex>
-
-          <Divider titlePlacement="left">Chunking Configuration</Divider>
-
-          <Form.Item name="strategy" label="Chunking Strategy" initialValue="recursive">
-            <Select>
-              <Select.Option value="recursive">Recursive Character (Recommended)</Select.Option>
-              <Select.Option value="character">Simple Character</Select.Option>
-              <Select.Option value="token">Token Based (OpenAI/Tiktoken)</Select.Option>
-            </Select>
-          </Form.Item>
-
-          <Flex gap="middle">
-            <Form.Item name="chunk_size" label="Chunk Size" initialValue={1000} className="flex-1">
-              <InputNumber min={1} style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="chunk_overlap" label="Chunk Overlap" initialValue={200} className="flex-1">
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-          </Flex>
-
-          {chunkStrategy === 'recursive' || chunkStrategy === 'character' ? (
-            <Form.Item name="separators" label="Custom Separators (Optional)">
-              <Select mode="tags" placeholder="e.g. \n\n, \n, ' '" />
-            </Form.Item>
-          ) : chunkStrategy === 'token' ? (
-            <Form.Item name="encoding_name" label="Token Encoding" initialValue="cl100k_base">
+          {chunkStrategy === 'token' && (
+            <Form.Item name="encoding_name" label="Token Encoding" initialValue="cl100k_base" className="mt-3 mb-0">
               <Select>
                 <Select.Option value="cl100k_base">cl100k_base (GPT-4, GPT-3.5)</Select.Option>
                 <Select.Option value="p50k_base">p50k_base (Codex)</Select.Option>
                 <Select.Option value="r50k_base">r50k_base (GPT-3)</Select.Option>
               </Select>
             </Form.Item>
-          ) : null}
+          )}
+          </Card>
+
+          {/* Execution Card */}
+          <Card
+            size="small"
+            style={{
+              borderLeft: '4px solid #722ed1',
+              backgroundColor: '#f9f0ff'
+            }}
+          >
+            <Text strong className="block mb-3" style={{ color: '#722ed1' }}>
+              ⚡ Execution Mode
+            </Text>
+            <Flex gap="middle">
+              <Form.Item name="execution_mode" label="Mode" initialValue="sequential" className="flex-1 mb-0">
+                <Select>
+                  <Select.Option value="sequential">
+                    <Space direction="vertical" size={0}>
+                      <Text strong>Sequential</Text>
+                      <Text type="secondary" className="text-xs">Process one by one</Text>
+                    </Space>
+                  </Select.Option>
+                  <Select.Option value="parallel">
+                    <Space direction="vertical" size={0}>
+                      <Text strong>Parallel</Text>
+                      <Text type="secondary" className="text-xs">Multiple workers</Text>
+                    </Space>
+                  </Select.Option>
+                </Select>
+              </Form.Item>
+              {executionMode === 'parallel' && (
+                <Form.Item name="max_workers" label="Workers" initialValue={4} className="flex-1 mb-0">
+                  <InputNumber min={1} max={16} style={{ width: '100%' }} />
+                </Form.Item>
+              )}
+            </Flex>
+          </Card>
         </Form>
       </Modal>
 
