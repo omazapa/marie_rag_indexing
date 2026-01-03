@@ -1,50 +1,111 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Form, Input, Select, Button, App, Row, Col, Divider, FormInstance } from 'antd';
+import {
+  Form,
+  Input,
+  Select,
+  Button,
+  App,
+  Row,
+  Col,
+  Divider,
+  FormInstance,
+  Card,
+  Typography,
+  Space,
+  Tag,
+  Collapse,
+  Alert,
+  Checkbox,
+  Radio,
+  InputNumber,
+  Tooltip,
+  Spin,
+} from 'antd';
 import { mongodbService } from '@/services/mongodbService';
-import { Database, Table, Zap } from 'lucide-react';
+import {
+  Database,
+  Table,
+  Zap,
+  CheckCircle2,
+  AlertCircle,
+  FileText,
+  Eye,
+  Filter,
+  Layers,
+  Info,
+} from 'lucide-react';
+import { InfoTooltip } from './InfoTooltip';
+
+const { Text, Paragraph } = Typography;
+const { TextArea } = Input;
 
 interface MongoDBConfigFormProps {
   form: FormInstance;
+}
+
+interface SchemaField {
+  name: string;
+  type: string;
+  sample?: string;
+  isNested?: boolean;
 }
 
 export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) => {
   const { message } = App.useApp();
   const [databases, setDatabases] = useState<string[]>([]);
   const [collections, setCollections] = useState<string[]>([]);
+  const [schema, setSchema] = useState<SchemaField[]>([]);
+  const [sampleDoc, setSampleDoc] = useState<Record<string, unknown> | null>(null);
   const [isLoadingDbs, setIsLoadingDbs] = useState(false);
   const [isLoadingCols, setIsLoadingCols] = useState(false);
+  const [isLoadingSchema, setIsLoadingSchema] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   const connectionString = Form.useWatch('connection_string', form);
   const selectedDb = Form.useWatch('database', form);
+  const selectedCollection = Form.useWatch('collection', form);
+  const queryMode = Form.useWatch('query_mode', form) || 'all';
 
-  const fetchDatabases = async () => {
+  const testConnection = async () => {
     if (!connectionString) {
       message.warning('Please enter a connection string first');
       return;
     }
 
     setIsLoadingDbs(true);
+    setConnectionStatus('idle');
     try {
       const result = await mongodbService.getDatabases(connectionString);
       setDatabases(result.databases);
-      message.success('Databases loaded successfully');
+      setIsConnected(true);
+      setConnectionStatus('success');
+      message.success({
+        content: `Connected! Found ${result.databases.length} databases`,
+        icon: <CheckCircle2 size={16} className="text-green-500" />,
+      });
     } catch (error: unknown) {
       console.error('MongoDB Error:', error);
-      let errMsg = 'Network Error or Backend Unreachable';
+      setIsConnected(false);
+      setConnectionStatus('error');
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const axiosError = error as any;
+      let errMsg = 'Network Error or Backend Unreachable';
+
       if (axiosError.response) {
-        // The request was made and the server responded with a status code
         errMsg = axiosError.response.data?.error || `Server Error (${axiosError.response.status})`;
       } else if (axiosError.request) {
-        // The request was made but no response was received
         errMsg = 'No response from backend. Check if the backend container is running.';
       } else {
         errMsg = axiosError.message || 'Unknown error';
       }
 
-      message.error(`Failed to load databases: ${errMsg}`, 5);
+      message.error({
+        content: `Connection failed: ${errMsg}`,
+        icon: <AlertCircle size={16} className="text-red-500" />,
+        duration: 5,
+      });
     } finally {
       setIsLoadingDbs(false);
     }
@@ -64,101 +125,452 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     }
   }, [connectionString, message]);
 
+  const fetchSchema = useCallback(async (db: string, collection: string) => {
+    if (!connectionString || !db || !collection) return;
+    setIsLoadingSchema(true);
+    try {
+      const result = await mongodbService.getSchema(connectionString, db, collection);
+
+      // Parse schema fields
+      const fields: SchemaField[] = result.schema.map(field => {
+        const [name, type] = field.split(': ');
+        return {
+          name,
+          type,
+          isNested: name.includes('.'),
+        };
+      });
+
+      setSchema(fields);
+
+      // Parse sample document if available
+      if (result.sample) {
+        try {
+          const sample = JSON.parse(result.sample);
+          setSampleDoc(sample);
+        } catch {
+          setSampleDoc(null);
+        }
+      }
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      message.error(`Failed to load schema: ${errMsg}`);
+      setSchema([]);
+      setSampleDoc(null);
+    } finally {
+      setIsLoadingSchema(false);
+    }
+  }, [connectionString, message]);
+
   useEffect(() => {
     if (selectedDb) {
       fetchCollections(selectedDb);
-    } else {
       setCollections([]);
+      setSchema([]);
+      setSampleDoc(null);
     }
   }, [selectedDb, fetchCollections]);
 
+  useEffect(() => {
+    if (selectedDb && selectedCollection) {
+      fetchSchema(selectedDb, selectedCollection);
+    } else {
+      setSchema([]);
+      setSampleDoc(null);
+    }
+  }, [selectedDb, selectedCollection, fetchSchema]);
+
+  // Helper to detect text fields
+  const textFields = schema.filter(f =>
+    f.type === 'str' ||
+    f.type === 'string' ||
+    f.name.toLowerCase().includes('text') ||
+    f.name.toLowerCase().includes('content') ||
+    f.name.toLowerCase().includes('body') ||
+    f.name.toLowerCase().includes('description')
+  );
+
+  // Helper to detect metadata fields
+  const metadataFields = schema.filter(f =>
+    !textFields.includes(f) &&
+    !f.name.startsWith('_') &&
+    !f.isNested
+  );
+
   return (
     <div className="space-y-4">
-      <Row gutter={16} align="bottom">
-        <Col span={18}>
-          <Form.Item
-            name="connection_string"
-            label="Connection URI"
-            rules={[{ required: true, message: 'Connection URI is required' }]}
-            initialValue="mongodb://192.168.1.10:27017"
-            tooltip="Enter your MongoDB connection string"
-          >
-            <Input.Password placeholder="mongodb://user:pass@host:port" />
-          </Form.Item>
-        </Col>
-        <Col span={6}>
-          <Form.Item>
-            <Button
-              icon={<Zap size={14} />}
-              onClick={fetchDatabases}
-              loading={isLoadingDbs}
-              block
+      {/* Connection Section */}
+      <Card size="small" className="border-purple-200">
+        <Space direction="vertical" className="w-full" size="middle">
+          <Space className="w-full">
+            <Database size={18} className="text-purple-600" />
+            <Text strong>MongoDB Connection</Text>
+          </Space>
+
+          <Row gutter={8} align="top">
+            <Col span={19}>
+              <Form.Item
+                name="connection_string"
+                rules={[{ required: true, message: 'Connection URI is required' }]}
+                className="mb-0"
+              >
+                <Input.Password
+                  placeholder="mongodb://user:pass@host:port"
+                  prefix={<Database size={14} />}
+                  size="large"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Button
+                icon={connectionStatus === 'success' ? <CheckCircle2 size={14} /> : <Zap size={14} />}
+                onClick={testConnection}
+                loading={isLoadingDbs}
+                block
+                size="large"
+                type={connectionStatus === 'success' ? 'primary' : 'default'}
+                className={connectionStatus === 'success' ? 'bg-green-500 hover:bg-green-600' : ''}
+              >
+                {connectionStatus === 'success' ? 'Connected' : 'Test'}
+              </Button>
+            </Col>
+          </Row>
+
+          {connectionStatus === 'success' && (
+            <Alert
+              message="Connection successful"
+              description={`Found ${databases.length} database(s). Select one to continue.`}
+              type="success"
+              showIcon
+              icon={<CheckCircle2 size={14} />}
+              closable
+            />
+          )}
+
+          {connectionStatus === 'error' && (
+            <Alert
+              message="Connection failed"
+              description="Check your connection string, network, and MongoDB server status."
+              type="error"
+              showIcon
+              icon={<AlertCircle size={14} />}
+              closable
+            />
+          )}
+        </Space>
+      </Card>
+
+      {/* Database & Collection Selection */}
+      {isConnected && (
+        <Card size="small" className="border-blue-200">
+          <Space direction="vertical" className="w-full" size="middle">
+            <Space className="w-full">
+              <Layers size={18} className="text-blue-600" />
+              <Text strong>Select Data Source</Text>
+            </Space>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="database"
+                  label="Database"
+                  rules={[{ required: true, message: 'Select a database' }]}
+                >
+                  <Select
+                    placeholder="Choose database"
+                    loading={isLoadingDbs}
+                    options={databases.map(db => ({
+                      label: (
+                        <Space>
+                          <Database size={14} />
+                          <span>{db}</span>
+                        </Space>
+                      ),
+                      value: db,
+                    }))}
+                    showSearch
+                    size="large"
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="collection"
+                  label="Collection"
+                  rules={[{ required: true, message: 'Select a collection' }]}
+                >
+                  <Select
+                    placeholder="Choose collection"
+                    loading={isLoadingCols}
+                    options={collections.map(col => ({
+                      label: (
+                        <Space>
+                          <Table size={14} />
+                          <span>{col}</span>
+                        </Space>
+                      ),
+                      value: col,
+                    }))}
+                    showSearch
+                    disabled={!selectedDb}
+                    size="large"
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Space>
+        </Card>
+      )}
+
+      {/* Schema Preview & Field Selection */}
+      {selectedDb && selectedCollection && schema.length > 0 && (
+        <Card size="small" className="border-green-200">
+          <Space direction="vertical" className="w-full" size="middle">
+            <Space className="w-full justify-between">
+              <Space>
+                <FileText size={18} className="text-green-600" />
+                <Text strong>Field Mapping for RAG</Text>
+              </Space>
+              {isLoadingSchema && <Spin size="small" />}
+            </Space>
+
+            <Collapse
+              items={[
+                {
+                  key: 'schema',
+                  label: (
+                    <Space>
+                      <Eye size={14} />
+                      <span>View Schema & Sample Document ({schema.length} fields)</span>
+                    </Space>
+                  ),
+                  children: (
+                    <div className="space-y-4">
+                      <div>
+                        <Text type="secondary" className="block mb-2">Available Fields:</Text>
+                        <div className="flex flex-wrap gap-2">
+                          {schema.map(field => (
+                            <Tag key={field.name} color={field.type === 'str' ? 'blue' : 'default'}>
+                              {field.name} <Text type="secondary" className="text-xs">({field.type})</Text>
+                            </Tag>
+                          ))}
+                        </div>
+                      </div>
+
+                      {sampleDoc && (
+                        <div>
+                          <Text type="secondary" className="block mb-2">Sample Document:</Text>
+                          <pre className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-48">
+                            {JSON.stringify(sampleDoc, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+
+            <Alert
+              message="Field Selection Tips"
+              description="Text fields contain the main content for indexing. Metadata fields provide context and filtering options."
+              type="info"
+              showIcon
+              icon={<Info size={14} />}
+            />
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="text_fields"
+                  label={
+                    <Space>
+                      <span>Text Fields (Content)</span>
+                      <InfoTooltip
+                        title="Content Fields"
+                        content="Fields containing the main text to be indexed. Multiple fields will be concatenated. Choose fields like 'content', 'body', 'text', or 'description'."
+                      />
+                    </Space>
+                  }
+                  rules={[{ required: true, message: 'Select at least one text field' }]}
+                  initialValue={textFields.length > 0 ? [textFields[0].name] : []}
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="Select text fields"
+                    options={schema
+                      .filter(f => !f.name.startsWith('_'))
+                      .map(f => ({
+                        label: (
+                          <Space>
+                            <FileText size={12} />
+                            <span>{f.name}</span>
+                            <Tag color="blue" className="text-xs">{f.type}</Tag>
+                            {textFields.includes(f) && <Tag color="green" className="text-xs">Recommended</Tag>}
+                          </Space>
+                        ),
+                        value: f.name,
+                      }))}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="metadata_fields"
+                  label={
+                    <Space>
+                      <span>Metadata Fields (Context)</span>
+                      <InfoTooltip
+                        title="Metadata Fields"
+                        content="Additional fields to include as metadata for filtering and context. Examples: author, date, category, tags."
+                      />
+                    </Space>
+                  }
+                  initialValue={[]}
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="Select metadata fields"
+                    options={schema
+                      .filter(f => !f.name.startsWith('_') && !f.isNested)
+                      .map(f => ({
+                        label: (
+                          <Space>
+                            <span>{f.name}</span>
+                            <Tag color="purple" className="text-xs">{f.type}</Tag>
+                          </Space>
+                        ),
+                        value: f.name,
+                      }))}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Space>
+        </Card>
+      )}
+
+      {/* Query Builder */}
+      {selectedDb && selectedCollection && (
+        <Card size="small" className="border-orange-200">
+          <Space direction="vertical" className="w-full" size="middle">
+            <Space className="w-full">
+              <Filter size={18} className="text-orange-600" />
+              <Text strong>Filter Documents (Optional)</Text>
+            </Space>
+
+            <Form.Item
+              name="query_mode"
+              label="Query Mode"
+              initialValue="all"
             >
-              Connect
-            </Button>
-          </Form.Item>
-        </Col>
-      </Row>
+              <Radio.Group>
+                <Radio.Button value="all">
+                  <Space>
+                    <Layers size={14} />
+                    <span>Index All Documents</span>
+                  </Space>
+                </Radio.Button>
+                <Radio.Button value="filter">
+                  <Space>
+                    <Filter size={14} />
+                    <span>Apply Filter</span>
+                  </Space>
+                </Radio.Button>
+              </Radio.Group>
+            </Form.Item>
 
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="database"
-            label="Database"
-            rules={[{ required: true, message: 'Please select a database' }]}
-          >
-            <Select
-              placeholder="Select database"
-              loading={isLoadingDbs}
-              options={databases.map(db => ({ label: db, value: db }))}
-              showSearch
-              suffixIcon={<Database size={14} />}
-            />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="collection"
-            label="Collection"
-            rules={[{ required: true, message: 'Please select a collection' }]}
-          >
-            <Select
-              placeholder="Select collection"
-              loading={isLoadingCols}
-              options={collections.map(col => ({ label: col, value: col }))}
-              showSearch
-              disabled={!selectedDb}
-              suffixIcon={<Table size={14} />}
-            />
-          </Form.Item>
-        </Col>
-      </Row>
+            {queryMode === 'filter' && (
+              <div className="space-y-4">
+                <Alert
+                  message="MongoDB Query Filter"
+                  description="Write a MongoDB query to filter documents. Example: status equals published and views greater than 100"
+                  type="warning"
+                  showIcon
+                />
 
-      <Divider style={{ margin: '12px 0' }} />
+                <Form.Item
+                  name="filter_query"
+                  label={
+                    <Space>
+                      <span>MongoDB Filter (JSON)</span>
+                      <InfoTooltip
+                        title="Filter Query"
+                        content="Valid MongoDB query in JSON format. Use operators like $gt, $lt, $in, $regex, etc."
+                      />
+                    </Space>
+                  }
+                >
+                  <TextArea
+                    rows={4}
+                    placeholder='{"status": "published", "date": {"$gte": "2024-01-01"}}'
+                    className="font-mono text-sm"
+                  />
+                </Form.Item>
 
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="content_field"
-            label="Content Field"
-            initialValue="text"
-            rules={[{ required: true }]}
-            tooltip="The field containing the text to be indexed"
-          >
-            <Input placeholder="e.g. text, body" />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="metadata_fields"
-            label="Metadata Fields"
-            initialValue={[]}
-            tooltip="Additional fields to include as metadata"
-          >
-            <Select mode="tags" placeholder="e.g. author, date" />
-          </Form.Item>
-        </Col>
-      </Row>
+                <Form.Item
+                  name="limit"
+                  label={
+                    <Space>
+                      <span>Document Limit (Optional)</span>
+                      <InfoTooltip
+                        title="Limit Documents"
+                        content="Maximum number of documents to index. Leave empty to index all matching documents."
+                      />
+                    </Space>
+                  }
+                >
+                  <InputNumber
+                    min={1}
+                    max={1000000}
+                    placeholder="No limit"
+                    style={{ width: '100%' }}
+                  />
+                </Form.Item>
+              </div>
+            )}
+          </Space>
+        </Card>
+      )}
+
+      {/* Advanced Settings */}
+      {selectedDb && selectedCollection && (
+        <Collapse
+          items={[
+            {
+              key: 'advanced',
+              label: 'Advanced Settings',
+              children: (
+                <Space direction="vertical" className="w-full">
+                  <Form.Item
+                    name="batch_size"
+                    label={
+                      <Space>
+                        <span>Batch Size</span>
+                        <InfoTooltip
+                          title="Processing Batch Size"
+                          content="Number of documents to process at once. Higher values = faster but more memory. Recommended: 500-1000."
+                        />
+                      </Space>
+                    }
+                    initialValue={500}
+                  >
+                    <InputNumber min={10} max={5000} style={{ width: '100%' }} />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="include_id"
+                    valuePropName="checked"
+                    initialValue={true}
+                  >
+                    <Checkbox>Include MongoDB _id in metadata</Checkbox>
+                  </Form.Item>
+                </Space>
+              ),
+            },
+          ]}
+        />
+      )}
     </div>
   );
 };

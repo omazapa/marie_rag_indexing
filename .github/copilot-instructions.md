@@ -23,6 +23,18 @@ You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generatio
 - Prioritize modularity and scalability.
 - Use descriptive variable and function names.
 
+### Commit Workflow
+- **NEVER ask the user to commit after each action**
+- **ALWAYS verify code quality BEFORE attempting a commit**:
+  - Run type checks (frontend)
+  - Check for parsing errors
+  - Verify no trailing whitespace or formatting issues
+  - Test imports and module resolution
+  - Ensure all required properties are present
+- **Only commit when all validations pass**
+- Group related changes into single, meaningful commits
+- Use descriptive commit messages following conventional commits format
+
 ### Backend (Python/Flask)
 - Use Pydantic for data validation and schema definitions.
 - Implement new data sources as plugins following the standard in `backend/app/plugins/base.py`.
