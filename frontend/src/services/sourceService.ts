@@ -18,4 +18,8 @@ export const sourceService = {
     const response = await api.post('/sources', source);
     return response.data;
   },
+  testConnection: async (type: string, config: Record<string, unknown>): Promise<{ success: boolean; error?: string }> => {
+    const response = await api.post('/sources/test-connection', { type, config });
+    return response.data;
+  },
 };

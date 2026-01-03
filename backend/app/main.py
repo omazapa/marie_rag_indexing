@@ -1,3 +1,4 @@
+import socket
 import threading
 from typing import Any
 
@@ -5,6 +6,7 @@ from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from pymongo import MongoClient
+from pymongo.errors import ServerSelectionTimeoutError
 
 from .application.services.assistant import ConnectorAssistant
 from .application.services.chunking import ChunkConfig
@@ -82,11 +84,40 @@ embedding_models: list[dict[str, Any]] = [
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    # Enable CORS for all routes and all origins with explicit settings
+    CORS(
+        app,
+        resources={
+            r"/*": {
+                "origins": "*",
+                "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Methods"],
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            }
+        },
+    )
+    print("Flask app created with robust CORS enabled")
 
     @app.route("/health", methods=["GET"])
     def health_check():
         return jsonify({"status": "healthy", "service": "marie-rag-indexing-api"}), 200
+
+    @app.route("/api/v1/debug/network", methods=["GET"])
+    def debug_network():
+        try:
+            host_ip = socket.gethostbyname("host.docker.internal")
+            return jsonify(
+                {
+                    "host.docker.internal": host_ip,
+                    "message": "DNS resolution for host.docker.internal is working.",
+                }
+            ), 200
+        except Exception as e:
+            return jsonify(
+                {
+                    "error": str(e),
+                    "tip": "DNS resolution failed. Ensure extra_hosts is set in docker-compose.yml",
+                }
+            ), 500
 
     @app.route("/api/v1/plugins", methods=["GET"])
     def list_plugins():
@@ -112,6 +143,68 @@ def create_app():
             return jsonify(plugin_class.get_config_schema()), 200
         except NotImplementedError:
             return jsonify({"error": "Schema not implemented for this plugin"}), 501
+
+    @app.route("/api/v1/sources/test-connection", methods=["POST"])
+    def test_source_connection():
+        data = request.json
+        if not data or "type" not in data or "config" not in data:
+            return jsonify({"error": "Missing type or config"}), 400
+
+        plugin_id = data["type"]
+        config = data["config"]
+
+        plugin_class = DATA_SOURCE_PLUGINS.get(plugin_id)
+        if not plugin_class:
+            return jsonify({"error": "Plugin not found"}), 404
+
+        try:
+            adapter = plugin_class(config)
+            success = adapter.test_connection()
+            return jsonify({"success": success}), 200
+        except Exception as e:
+            error_msg = str(e)
+            conn_str = config.get("connection_string", "")
+            if "localhost" in conn_str or "127.0.0.1" in conn_str:
+                error_msg += " | TIP: Use 'host.docker.internal' instead of 'localhost' in Docker."
+            return jsonify({"success": False, "error": error_msg}), 200
+
+    @app.route("/api/v1/plugins/mongodb/databases", methods=["POST"])
+    def list_mongodb_databases():
+        data = request.json
+        if not data or "connection_string" not in data:
+            return jsonify({"error": "Missing connection_string"}), 400
+
+        conn_str = data["connection_string"]
+        try:
+            client: MongoClient[Any] = MongoClient(conn_str, serverSelectionTimeoutMS=5000)
+            databases = client.list_database_names()
+            return jsonify({"databases": databases}), 200
+        except ServerSelectionTimeoutError:
+            error_msg = "Connection Timeout. MongoDB is not reachable."
+            error_msg += (
+                " Ensure MongoDB is running on your host and allows connections on port 27017."
+            )
+            return jsonify({"error": error_msg}), 500
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/v1/plugins/mongodb/collections", methods=["POST"])
+    def list_mongodb_collections():
+        data = request.json
+        if not data or "connection_string" not in data or "database" not in data:
+            return jsonify({"error": "Missing connection_string or database"}), 400
+
+        conn_str = data["connection_string"]
+        try:
+            client: MongoClient[Any] = MongoClient(conn_str, serverSelectionTimeoutMS=5000)
+            db = client[data["database"]]
+            collections = db.list_collection_names()
+            return jsonify({"collections": collections}), 200
+        except ServerSelectionTimeoutError:
+            error_msg = "Connection Timeout. MongoDB is not reachable."
+            return jsonify({"error": error_msg}), 500
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route("/api/v1/vector_stores", methods=["GET"])
     def list_vector_stores():
@@ -168,34 +261,6 @@ def create_app():
         try:
             adapter.delete_index(index_name)
             return jsonify({"status": "success"}), 200
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    @app.route("/api/v1/mongodb/databases", methods=["GET"])
-    def get_mongodb_databases():
-        conn_str = request.args.get("connection_string")
-        if not conn_str:
-            return jsonify({"error": "Missing connection string"}), 400
-        try:
-            client: MongoClient[Any] = MongoClient(conn_str, serverSelectionTimeoutMS=5000)
-            # The ismaster command is cheap and does not require special privileges.
-            client.admin.command("ismaster")
-            dbs = client.list_database_names()
-            return jsonify({"databases": dbs}), 200
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    @app.route("/api/v1/mongodb/collections", methods=["GET"])
-    def list_mongodb_collections():
-        conn_str = request.args.get("connection_string")
-        db_name = request.args.get("database")
-        if not conn_str or not db_name:
-            return jsonify({"error": "Missing connection_string or database"}), 400
-        try:
-            client: MongoClient[Any] = MongoClient(conn_str, serverSelectionTimeoutMS=5000)
-            db = client[db_name]
-            collections = db.list_collection_names()
-            return jsonify({"collections": collections}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 

@@ -32,6 +32,17 @@ class SQLAdapter(DataSourcePort):
 
         self.engine = create_engine(self.connection_string)
 
+    def validate_config(self) -> bool:
+        return all([self.connection_string, self.query])
+
+    def test_connection(self) -> bool:
+        try:
+            with self.engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+                return True
+        except Exception:
+            return False
+
     def load_data(self) -> Generator[Document, None, None]:
         if not self.query:
             return
@@ -63,17 +74,6 @@ class SQLAdapter(DataSourcePort):
         except Exception as e:
             print(f"Error fetching data from SQL: {e}")
 
-    def test_connection(self) -> bool:
-        try:
-            with self.engine.connect() as connection:
-                connection.execute(text("SELECT 1"))
-            return True
-        except Exception:
-            return False
-
-    def validate_config(self) -> bool:
-        return all([self.connection_string, self.query])
-
     @staticmethod
     def get_config_schema() -> dict[str, Any]:
         return {
@@ -81,28 +81,28 @@ class SQLAdapter(DataSourcePort):
             "properties": {
                 "connection_string": {
                     "type": "string",
-                    "title": "Connection String",
-                    "description": "SQLAlchemy connection string (e.g., postgresql://user:pass@localhost/db)",
+                    "title": "Connection URI",
+                    "description": "SQLAlchemy-compatible URI (e.g., postgresql://user:pass@host:port/db)",
                     "default": "postgresql://user:pass@localhost/db",
                 },
                 "query": {
                     "type": "string",
                     "title": "SQL Query",
-                    "description": "SQL query to fetch data",
+                    "description": "The SELECT query to fetch data (e.g., SELECT * FROM articles)",
                 },
                 "content_column": {
                     "type": "string",
                     "title": "Content Column",
-                    "description": "Column containing the text to be indexed",
+                    "description": "The column name that contains the text to index",
                     "default": "content",
                 },
                 "metadata_columns": {
                     "type": "array",
                     "title": "Metadata Columns",
-                    "description": "Columns to include as metadata",
+                    "description": "List of columns to include as metadata",
                     "items": {"type": "string"},
                     "default": [],
                 },
             },
-            "required": ["connection_string", "query"],
+            "required": ["connection_string", "query", "content_column"],
         }

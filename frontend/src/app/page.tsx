@@ -10,16 +10,14 @@ import {
   AlertCircle,
   Clock,
   Plus,
-  Search,
-  Zap
+  Search
 } from 'lucide-react';
 import { Welcome } from '@ant-design/x';
 import { useQuery } from '@tanstack/react-query';
 import { statsService } from '@/services/statsService';
 import { BRAND_CONFIG } from '@/core/branding';
-import Image from 'next/image';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useQuery({
@@ -36,9 +34,8 @@ export default function Dashboard() {
     <div className="space-y-8">
       <Welcome
         variant="borderless"
-        icon={<Image src={BRAND_CONFIG.logoIcon} alt="Marie" width={64} height={64} />}
         title={`Welcome to ${BRAND_CONFIG.name}`}
-        description="Your modular system for indexing data from various sources into your preferred Vector Store for RAG applications. Start by adding a data source or managing your indices."
+        description="A modular system for indexing data from various sources into vector databases for RAG applications. Start by adding a data source or managing your indices."
         extra={
           <Space>
             <Button type="primary" icon={<Plus size={16} />}>New Source</Button>
@@ -46,39 +43,6 @@ export default function Dashboard() {
           </Space>
         }
       />
-
-      <div className="space-y-4">
-        <Title level={4}>Quick Actions</Title>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={8}>
-            <Card hoverable className="shadow-sm border-none bg-blue-50">
-              <Space direction="vertical">
-                <Zap size={24} className="text-blue-500" />
-                <Text strong>Run Ingestion</Text>
-                <Text type="secondary">Start a new indexing job</Text>
-              </Space>
-            </Card>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Card hoverable className="shadow-sm border-none bg-green-50">
-              <Space direction="vertical">
-                <Database size={24} className="text-green-500" />
-                <Text strong>Add MongoDB</Text>
-                <Text type="secondary">Connect a new collection</Text>
-              </Space>
-            </Card>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Card hoverable className="shadow-sm border-none bg-purple-50">
-              <Space direction="vertical">
-                <FileText size={24} className="text-purple-500" />
-                <Text strong>View Indices</Text>
-                <Text type="secondary">Manage your vector stores</Text>
-              </Space>
-            </Card>
-          </Col>
-        </Row>
-      </div>
 
       <Divider />
 

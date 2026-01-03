@@ -40,6 +40,16 @@ class MongoDBAdapter(DataSourcePort):
         if self.collection_name:
             self.collection = self.db[self.collection_name]
 
+    def validate_config(self) -> bool:
+        return all([self.connection_string, self.database_name, self.collection_name])
+
+    def test_connection(self) -> bool:
+        try:
+            self.client.admin.command("ping")
+            return True
+        except Exception:
+            return False
+
     def load_data(self) -> Generator[Document, None, None]:
         if not hasattr(self, "collection"):
             return
@@ -88,16 +98,6 @@ class MongoDBAdapter(DataSourcePort):
         except Exception as e:
             print(f"Error fetching data from MongoDB: {e}")
 
-    def test_connection(self) -> bool:
-        try:
-            self.client.admin.command("ismaster")
-            return True
-        except Exception:
-            return False
-
-    def validate_config(self) -> bool:
-        return all([self.connection_string, self.database_name, self.collection_name])
-
     @staticmethod
     def get_config_schema() -> dict[str, Any]:
         return {
@@ -105,38 +105,43 @@ class MongoDBAdapter(DataSourcePort):
             "properties": {
                 "connection_string": {
                     "type": "string",
-                    "title": "Connection String",
-                    "description": "MongoDB connection URI (e.g., mongodb://localhost:27017)",
-                    "default": "mongodb://localhost:27017",
+                    "title": "Connection URI",
+                    "description": "Standard MongoDB connection string (e.g., mongodb://192.168.1.10:27017)",
+                    "default": "mongodb://192.168.1.10:27017",
                 },
                 "database": {
                     "type": "string",
-                    "title": "Database Name",
-                    "description": "Name of the database to index",
+                    "title": "Database",
+                    "description": "The name of the database to connect to",
                 },
                 "collection": {
                     "type": "string",
-                    "title": "Collection Name",
-                    "description": "Name of the collection to index",
+                    "title": "Collection",
+                    "description": "The collection containing the documents",
                 },
                 "content_field": {
                     "type": "string",
                     "title": "Content Field",
-                    "description": "Field containing the text to be vectorized",
+                    "description": "Field with main text content (e.g., 'text', 'body')",
                     "default": "text",
                 },
                 "metadata_fields": {
                     "type": "array",
                     "title": "Metadata Fields",
-                    "description": "Fields to include as metadata",
+                    "description": "Additional fields for metadata (e.g., ['author', 'date'])",
                     "items": {"type": "string"},
                     "default": [],
                 },
-                "query_mode": {"type": "boolean", "title": "Enable Custom Query", "default": False},
+                "query_mode": {
+                    "type": "boolean",
+                    "title": "Advanced Query Mode",
+                    "description": "Enable to use a custom JSON query or aggregation pipeline",
+                    "default": False,
+                },
                 "query": {
                     "type": "object",
-                    "title": "Custom Query/Pipeline",
-                    "description": "JSON query or aggregation pipeline",
+                    "title": "Query / Pipeline",
+                    "description": "A valid MongoDB find query {} or aggregation pipeline []",
                     "default": {},
                 },
             },

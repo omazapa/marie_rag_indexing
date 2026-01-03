@@ -7,6 +7,16 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
 
+# Development stage
+FROM base AS dev
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY frontend/ ./
+ENV NODE_ENV development
+ENV HOSTNAME "0.0.0.0"
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app

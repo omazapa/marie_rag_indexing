@@ -19,7 +19,7 @@ import {
   Breadcrumb,
   Flex
 } from 'antd';
-import { Plus, Play, Settings, Trash2, Bot, Database as DbIcon, Globe, Folder } from 'lucide-react';
+import { Plus, Play, Settings, Trash2, Bot, Database as DbIcon, Globe, Folder, Info } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sourceService, DataSource } from '@/services/sourceService';
 import { pluginService, ConfigSchema } from '@/services/pluginService';
@@ -29,12 +29,14 @@ import { LogViewer } from '@/components/LogViewer';
 import { modelService } from '@/services/modelService';
 import { vectorStoreService } from '@/services/vectorStoreService';
 import { DynamicConfigForm } from '@/components/DynamicConfigForm';
+import { MongoDBConfigForm } from '@/components/MongoDBConfigForm';
+import { Prompts } from '@ant-design/x';
 import Link from 'next/link';
 
 const { Title, Text } = Typography;
 
 export default function SourcesPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
@@ -46,6 +48,7 @@ export default function SourcesPage() {
   const [ingestForm] = Form.useForm();
   const chunkStrategy = Form.useWatch('strategy', ingestForm);
   const executionMode = Form.useWatch('execution_mode', ingestForm);
+  const sourceType = Form.useWatch('type', form);
 
   const handleAssistant = async () => {
     if (!assistantPrompt) return;
@@ -64,7 +67,7 @@ export default function SourcesPage() {
 
       message.success('Assistant suggested a configuration!');
       if (suggestion.explanation) {
-        Modal.info({
+        modal.info({
           title: 'Assistant Explanation',
           content: suggestion.explanation,
         });
@@ -74,6 +77,32 @@ export default function SourcesPage() {
     } finally {
       setIsAssistantLoading(false);
       setAssistantPrompt('');
+    }
+  };
+
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+
+  const handleTestConnection = async () => {
+    const values = form.getFieldsValue();
+    if (!values.type) {
+      message.warning('Please select a source type first');
+      return;
+    }
+
+    setIsTestingConnection(true);
+    try {
+      // Extract config fields (everything except name and type)
+      const { type, ...config } = values;
+      const result = await sourceService.testConnection(type, config);
+      if (result.success) {
+        message.success('Connection successful!');
+      } else {
+        message.error(`Connection failed: ${result.error || 'Unknown error'}`);
+      }
+    } catch {
+      message.error('Failed to test connection');
+    } finally {
+      setIsTestingConnection(false);
     }
   };
 
@@ -150,10 +179,17 @@ export default function SourcesPage() {
 
   const columns = [
     {
-      title: 'Name',
+      title: 'Source',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string) => <a>{text}</a>,
+      render: (text: string, record: DataSource) => (
+        <Space>
+          {record.type === 'mongodb' || record.type === 'sql' ? <DbIcon size={16} className="text-blue-500" /> :
+           record.type === 'web_scraper' ? <Globe size={16} className="text-green-500" /> :
+           <Folder size={16} className="text-orange-500" />}
+          <Text strong>{text}</Text>
+        </Space>
+      ),
     },
     {
       title: 'Type',
@@ -166,24 +202,28 @@ export default function SourcesPage() {
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
-        <Tag color={status === 'active' ? 'green' : status === 'error' ? 'red' : 'default'}>
-          {status.toUpperCase()}
-        </Tag>
+        <Flex align="center" gap={8}>
+          <div className={`w-2 h-2 rounded-full ${status === 'active' ? 'bg-green-500' : status === 'error' ? 'bg-red-500' : 'bg-gray-400'}`} />
+          <Text type="secondary" className="text-xs">{status.toUpperCase()}</Text>
+        </Flex>
       ),
     },
     {
       title: 'Last Run',
       dataIndex: 'lastRun',
       key: 'lastRun',
+      render: (date: string) => <Text type="secondary" className="text-xs">{date || 'Never'}</Text>
     },
     {
       title: 'Action',
       key: 'action',
+      align: 'right' as const,
       render: (_: unknown, record: DataSource) => (
-        <Space size="middle">
+        <Space size="small">
           <Button
-            type="text"
-            icon={<Play size={16} />}
+            type="primary"
+            size="small"
+            icon={<Play size={14} />}
             loading={ingestMutation.isPending && selectedSourceForIngest?.id === record.id}
             onClick={() => {
               setSelectedSourceForIngest(record);
@@ -198,9 +238,11 @@ export default function SourcesPage() {
                 max_workers: 4
               });
             }}
-          />
-          <Button type="text" icon={<Settings size={16} />} />
-          <Button type="text" danger icon={<Trash2 size={16} />} />
+          >
+            Run
+          </Button>
+          <Button type="text" size="small" icon={<Settings size={14} />} />
+          <Button type="text" size="small" danger icon={<Trash2 size={14} />} />
         </Space>
       ),
     },
@@ -263,38 +305,33 @@ export default function SourcesPage() {
         </Space>
       </div>
 
-      <div className="space-y-4">
-        <Title level={4}>Quick Connect</Title>
-        <Flex gap="middle" wrap="wrap">
-          <Button
-            icon={<Folder size={16} className="text-blue-500" />}
-            onClick={() => {
-              setIsModalOpen(true);
-              form.setFieldsValue({ type: 'local_file' });
-            }}
-          >
-            Local Files
-          </Button>
-          <Button
-            icon={<DbIcon size={16} className="text-green-500" />}
-            onClick={() => {
-              setIsModalOpen(true);
-              form.setFieldsValue({ type: 'mongodb' });
-            }}
-          >
-            MongoDB
-          </Button>
-          <Button
-            icon={<Globe size={16} className="text-orange-500" />}
-            onClick={() => {
-              setIsModalOpen(true);
-              form.setFieldsValue({ type: 'web_scraper' });
-            }}
-          >
-            Web Scraper
-          </Button>
-        </Flex>
-      </div>
+      <Prompts
+        title="Configuration Guide"
+        onItemClick={(info) => {
+          if (info.data.key === 'add') setIsModalOpen(true);
+          if (info.data.key === 'assistant') setIsAssistantModalOpen(true);
+        }}
+        items={[
+          {
+            key: 'add',
+            icon: <Plus size={16} />,
+            label: 'Add a new data source manually',
+            description: 'Configure SQL, NoSQL, or Cloud storage connectors.',
+          },
+          {
+            key: 'assistant',
+            icon: <Bot size={16} />,
+            label: 'Use AI Assistant to configure',
+            description: 'Describe your data source and let Marie help you.',
+          },
+          {
+            key: 'help',
+            icon: <Info size={16} />,
+            label: 'Learn about supported sources',
+            description: 'View documentation for all available plugins.',
+          },
+        ]}
+      />
 
       <Card variant="borderless" className="shadow-sm">
         <Table columns={columns} dataSource={sources} rowKey="id" />
@@ -307,12 +344,33 @@ export default function SourcesPage() {
       <Modal
         title="Add New Data Source"
         open={isModalOpen}
-        onOk={() => form.submit()}
         onCancel={() => {
           setIsModalOpen(false);
           setPluginSchema(null);
+          form.resetFields();
         }}
-        confirmLoading={addSourceMutation.isPending}
+        footer={[
+          <Button key="cancel" onClick={() => setIsModalOpen(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="test"
+            loading={isTestingConnection}
+            onClick={handleTestConnection}
+            disabled={!pluginSchema || sourceType === 'mongodb'}
+            style={sourceType === 'mongodb' ? { display: 'none' } : {}}
+          >
+            Test Connection
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={addSourceMutation.isPending}
+            onClick={() => form.submit()}
+          >
+            Add Source
+          </Button>,
+        ]}
       >
         <Form form={form} layout="vertical" onFinish={handleAddSource}>
           <Form.Item name="name" label="Source Name" rules={[{ required: true }]}>
@@ -334,7 +392,11 @@ export default function SourcesPage() {
           {pluginSchema && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
               <Text strong className="block mb-4">Configuration</Text>
-              <DynamicConfigForm schema={pluginSchema} />
+              {sourceType === 'mongodb' ? (
+                <MongoDBConfigForm form={form} />
+              ) : (
+                <DynamicConfigForm schema={pluginSchema} />
+              )}
             </div>
           )}
         </Form>

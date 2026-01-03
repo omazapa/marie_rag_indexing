@@ -15,15 +15,16 @@ export interface MongoSchemaResponse {
 
 export const mongodbService = {
   getDatabases: async (connectionString: string): Promise<MongoDatabasesResponse> => {
-    const response = await api.get<MongoDatabasesResponse>('/mongodb/databases', {
-      params: { connection_string: connectionString }
+    const response = await api.post<MongoDatabasesResponse>('/plugins/mongodb/databases', {
+      connection_string: connectionString
     });
     return response.data;
   },
 
   getCollections: async (connectionString: string, database: string): Promise<MongoCollectionsResponse> => {
-    const response = await api.get<MongoCollectionsResponse>('/mongodb/collections', {
-      params: { connection_string: connectionString, database }
+    const response = await api.post<MongoCollectionsResponse>('/plugins/mongodb/collections', {
+      connection_string: connectionString,
+      database
     });
     return response.data;
   },

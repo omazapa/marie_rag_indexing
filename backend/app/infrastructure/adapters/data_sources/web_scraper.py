@@ -20,6 +20,18 @@ class WebScraperAdapter(DataSourcePort):
         self.max_depth = config.get("max_depth", 1)
         self.visited: set[str] = set()
 
+    def validate_config(self) -> bool:
+        return bool(self.base_url)
+
+    def test_connection(self) -> bool:
+        if not self.base_url:
+            return False
+        try:
+            response = requests.get(self.base_url, timeout=5)
+            return response.status_code == requests.codes.ok
+        except Exception:
+            return False
+
     def load_data(self) -> Generator[Document, None, None]:
         if not self.base_url:
             return
@@ -80,18 +92,6 @@ class WebScraperAdapter(DataSourcePort):
     def display_name(self) -> str:
         return "Web Scraper"
 
-    def test_connection(self) -> bool:
-        if not self.base_url:
-            return False
-        try:
-            response = requests.get(self.base_url, timeout=5)
-            return bool(response.status_code == requests.codes.ok)
-        except Exception:
-            return False
-
-    def validate_config(self) -> bool:
-        return bool(self.base_url and self.base_url.startswith("http"))
-
     @staticmethod
     def get_config_schema() -> dict[str, Any]:
         return {
@@ -99,16 +99,17 @@ class WebScraperAdapter(DataSourcePort):
             "properties": {
                 "base_url": {
                     "type": "string",
-                    "title": "Base URL",
-                    "description": "URL of the website to scrape",
+                    "title": "Website URL",
+                    "description": "The starting URL for scraping (e.g., https://docs.example.com)",
                     "default": "https://example.com",
                 },
                 "max_depth": {
                     "type": "integer",
-                    "title": "Max Depth",
-                    "description": "Maximum depth for crawling links",
+                    "title": "Crawl Depth",
+                    "description": "How many levels of links to follow (0 = only the base URL)",
                     "default": 1,
                     "minimum": 0,
+                    "maximum": 5,
                 },
             },
             "required": ["base_url"],

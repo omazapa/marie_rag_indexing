@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Input, Select, Switch, InputNumber } from 'antd';
+import { Form, Input, Select, Switch, InputNumber, Row, Col } from 'antd';
 
 interface ConfigField {
   type: string;
@@ -33,6 +33,7 @@ export const DynamicConfigForm: React.FC<DynamicConfigFormProps> = ({
 
     switch (field.type) {
       case "string":
+        const isPassword = key.toLowerCase().includes('password') || key.toLowerCase().includes('secret') || key.toLowerCase().includes('key');
         return (
           <Form.Item
             key={key}
@@ -42,7 +43,11 @@ export const DynamicConfigForm: React.FC<DynamicConfigFormProps> = ({
             rules={[{ required, message: `Please input ${label}!` }]}
             initialValue={field.default}
           >
-            <Input placeholder={(field.default as string) || ''} />
+            {isPassword ? (
+              <Input.Password placeholder="••••••••" />
+            ) : (
+              <Input placeholder={(field.default as string) || ''} />
+            )}
           </Form.Item>
         );
       case 'boolean':
@@ -102,8 +107,12 @@ export const DynamicConfigForm: React.FC<DynamicConfigFormProps> = ({
   };
 
   return (
-    <div className="space-y-2">
-      {Object.entries(schema.properties).map(([key, field]) => renderField(key, field))}
-    </div>
+    <Row gutter={[16, 0]}>
+      {Object.entries(schema.properties).map(([key, field]) => (
+        <Col span={field.type === 'object' || field.type === 'array' ? 24 : 12} key={key}>
+          {renderField(key, field)}
+        </Col>
+      ))}
+    </Row>
   );
 };

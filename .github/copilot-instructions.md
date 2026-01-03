@@ -16,6 +16,7 @@ You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generatio
 ## Coding Guidelines
 
 ### General
+- **Language**: ALL code, comments, UI text, and communication MUST be in English. Never use Spanish or any other language.
 - Follow the principles outlined in [AI_ASSISTANT_PROFILE.md](../AI_ASSISTANT_PROFILE.md).
 - **Architecture**: Strictly follow **Hexagonal Architecture** (Ports and Adapters).
 - **Principles**: Apply **SOLID** principles in every component.
