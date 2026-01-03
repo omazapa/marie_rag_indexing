@@ -83,7 +83,8 @@ class OpenSearchAdapter(VectorStorePort):
         index_name = "ingestion_checkpoints"
         try:
             response = self.client.get(index=index_name, id=source_id)
-            return response["_source"]["state"]
+            state = response["_source"].get("state")
+            return state if isinstance(state, dict) else None  # type: ignore
         except Exception:
             return None
 
@@ -117,7 +118,7 @@ class OpenSearchAdapter(VectorStorePort):
         k: int = 5,
         filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        query = {
+        query: dict[str, Any] = {
             "size": k,
             "query": {
                 "bool": {
@@ -137,7 +138,8 @@ class OpenSearchAdapter(VectorStorePort):
         return [hit["_source"] for hit in response["hits"]["hits"]]
 
     def list_indices(self) -> list[dict[str, Any]]:
-        indices = self.client.indices.get_alias().keys()
+        indices_dict = self.client.indices.get_alias()
+        indices = list(indices_dict.keys())  # type: ignore
         result = []
         for index in indices:
             if index.startswith(".") or index == "ingestion_checkpoints":

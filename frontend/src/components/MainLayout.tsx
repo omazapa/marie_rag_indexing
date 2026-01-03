@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import { BRAND_CONFIG } from '@/core/branding';
+import { ErrorBoundary } from './ErrorBoundary';
 
 const { Header, Content, Sider } = Layout;
 
@@ -109,7 +110,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               borderRadius: borderRadiusLG,
             }}
           >
-            {children}
+            <ErrorBoundary>{children}</ErrorBoundary>
           </div>
         </Content>
       </Layout>

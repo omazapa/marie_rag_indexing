@@ -1,4 +1,4 @@
-import api from './api';
+import { apiClient } from './api';
 
 export interface ConnectorSuggestion {
   plugin_id: string;
@@ -8,7 +8,7 @@ export interface ConnectorSuggestion {
 
 export const assistantService = {
   suggestConnector: async (prompt: string): Promise<ConnectorSuggestion> => {
-    const response = await api.post('/assistant/connector', { prompt });
+    const response = await apiClient.post('/assistant/connector', { prompt });
     return response.data;
   }
 };

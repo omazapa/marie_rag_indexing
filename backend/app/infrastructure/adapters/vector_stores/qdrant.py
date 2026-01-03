@@ -35,10 +35,12 @@ class QdrantAdapter(VectorStorePort):
     def index_chunks(self, index_name: str, chunks: list[Chunk]):
         points = []
         for chunk in chunks:
+            if chunk.embedding is None:
+                continue
             points.append(
                 models.PointStruct(
                     id=chunk.chunk_id,
-                    vector=chunk.embedding,
+                    vector=chunk.embedding,  # type: ignore
                     payload={
                         "content": chunk.content,
                         "source_id": chunk.source_id,

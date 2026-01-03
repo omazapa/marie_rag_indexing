@@ -16,12 +16,10 @@ class PineconeAdapter(VectorStorePort):
     def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         api_key = self.config.get("api_key") or os.getenv("PINECONE_API_KEY")
-        if not api_key:
-            # We don't raise here to allow listing schemas without keys
-            self.pc = None
-        else:
+        self.pc: Pinecone | None = None
+        if api_key:
             self.pc = Pinecone(api_key=api_key)
-        self.index = None
+        self.index: Any = None
 
     def create_index(
         self, index_name: str, dimension: int = 384, body: dict[str, Any] | None = None
@@ -29,11 +27,12 @@ class PineconeAdapter(VectorStorePort):
         if not self.pc:
             raise ValueError("Pinecone API key not configured")
 
+        assert self.pc is not None
+
         if index_name not in self.pc.list_indexes().names():
-            spec = ServerlessSpec(
-                cloud=self.config.get("cloud") or os.getenv("PINECONE_CLOUD", "aws"),
-                region=self.config.get("region") or os.getenv("PINECONE_REGION", "us-east-1"),
-            )
+            cloud = self.config.get("cloud") or os.getenv("PINECONE_CLOUD", "aws")
+            region = self.config.get("region") or os.getenv("PINECONE_REGION", "us-east-1")
+            spec = ServerlessSpec(cloud=cloud, region=region)  # type: ignore
 
             self.pc.create_index(name=index_name, dimension=dimension, metric="cosine", spec=spec)
 
@@ -45,6 +44,8 @@ class PineconeAdapter(VectorStorePort):
         return True
 
     def index_chunks(self, index_name: str, chunks: list[Chunk]):
+        if not self.pc:
+            raise ValueError("Pinecone API key not configured")
         if not self.index:
             self.index = self.pc.Index(index_name)
 
@@ -63,7 +64,7 @@ class PineconeAdapter(VectorStorePort):
             )
 
         # Pinecone upsert in batches if needed, but for now simple
-        self.index.upsert(vectors=vectors)
+        self.index.upsert(vectors=vectors)  # type: ignore
         return len(chunks), 0
 
     def save_checkpoint(self, source_id: str, state: dict[str, Any]):
@@ -81,11 +82,16 @@ class PineconeAdapter(VectorStorePort):
         k: int = 5,
         filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
+        if not self.pc:
+            raise ValueError("Pinecone API key not configured")
         if not self.index:
             self.index = self.pc.Index(index_name)
 
-        results = self.index.query(
-            vector=query_vector, top_k=k, include_metadata=True, filter=filters
+        results = self.index.query(  # type: ignore
+            vector=query_vector,
+            top_k=k,
+            include_metadata=True,
+            filter=filters,
         )
 
         formatted_results = []

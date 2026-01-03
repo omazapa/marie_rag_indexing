@@ -1,4 +1,4 @@
-import api from './api';
+import { apiClient } from './api';
 
 export interface DataSource {
   id: string;
@@ -11,15 +11,15 @@ export interface DataSource {
 
 export const sourceService = {
   getSources: async (): Promise<DataSource[]> => {
-    const response = await api.get('/sources');
+    const response = await apiClient.get('/sources');
     return response.data.sources;
   },
   addSource: async (source: Partial<DataSource>): Promise<DataSource> => {
-    const response = await api.post('/sources', source);
+    const response = await apiClient.post('/sources', source);
     return response.data;
   },
   testConnection: async (type: string, config: Record<string, unknown>): Promise<{ success: boolean; error?: string }> => {
-    const response = await api.post('/sources/test-connection', { type, config });
+    const response = await apiClient.post('/sources/test-connection', { type, config });
     return response.data;
   },
 };

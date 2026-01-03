@@ -30,6 +30,7 @@ import { modelService } from '@/services/modelService';
 import { vectorStoreService } from '@/services/vectorStoreService';
 import { DynamicConfigForm } from '@/components/DynamicConfigForm';
 import { MongoDBConfigForm } from '@/components/MongoDBConfigForm';
+import { EmptyState } from '@/components/EmptyState';
 import { Prompts } from '@ant-design/x';
 import Link from 'next/link';
 
@@ -334,7 +335,22 @@ export default function SourcesPage() {
       />
 
       <Card variant="borderless" className="shadow-sm">
-        <Table columns={columns} dataSource={sources} rowKey="id" />
+        <Table
+          columns={columns}
+          dataSource={sources}
+          rowKey="id"
+          locale={{
+            emptyText: (
+              <EmptyState
+                icon={DbIcon}
+                title="No Data Sources"
+                description="Start by adding your first data source to begin indexing."
+                actionLabel="Add First Source"
+                onAction={() => setIsModalOpen(true)}
+              />
+            ),
+          }}
+        />
       </Card>
 
       <div style={{ marginTop: '24px' }}>

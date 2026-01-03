@@ -20,6 +20,7 @@ import {
 import { Plus, Trash2, Cpu, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { modelService, EmbeddingModel } from '@/services/modelService';
+import { EmptyState } from '@/components/EmptyState';
 import Link from 'next/link';
 
 const { Title, Text } = Typography;
@@ -169,7 +170,22 @@ export default function ModelsPage() {
       </div>
 
       <Card variant="borderless" className="shadow-sm">
-        <Table columns={columns} dataSource={models} rowKey="id" />
+        <Table
+          columns={columns}
+          dataSource={models}
+          rowKey="id"
+          locale={{
+            emptyText: (
+              <EmptyState
+                icon={Cpu}
+                title="No Embedding Models"
+                description="Add your first embedding model to start vectorizing documents."
+                actionLabel="Add First Model"
+                onAction={() => setIsModalOpen(true)}
+              />
+            ),
+          }}
+        />
       </Card>
 
       <Modal

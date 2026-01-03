@@ -12,12 +12,12 @@ from ....domain.models import Chunk
 Base = declarative_base()
 
 
-class PGChunk(Base):
+class PGChunk(Base):  # type: ignore
     __tablename__ = "chunks"
 
     chunk_id = Column(String(100), primary_key=True)
     content = Column(Text)
-    embedding = Column(Vector(384))  # Default dimension
+    embedding: Any = Column(Vector(384))  # Default dimension
     source_id = Column(String(100))
     metadata_json = Column(JSON)
     index_name = Column(String(100), index=True)
@@ -33,12 +33,16 @@ class PGVectorAdapter(VectorStorePort):
         db_url = self.config.get("connection_string") or os.getenv(
             "DATABASE_URL", "postgresql://user:pass@localhost:5432/db"
         )
+        if not isinstance(db_url, str):
+            raise ValueError("Database connection string must be a string")
         self.engine = create_engine(db_url)
         self.Session = sessionmaker(bind=self.engine)
 
-        # Create extension if not exists
+        # Ensure pgvector extension is installed
         with self.engine.connect() as conn:
-            conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            from sqlalchemy import text
+
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             conn.commit()
 
     def create_index(

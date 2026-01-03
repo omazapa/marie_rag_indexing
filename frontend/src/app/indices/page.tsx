@@ -17,6 +17,7 @@ import { FileText, Trash2, RefreshCw, Database, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { indexService, IndexInfo } from '@/services/indexService';
 import { vectorStoreService } from '@/services/vectorStoreService';
+import { EmptyState } from '@/components/EmptyState';
 import Link from 'next/link';
 
 const { Title, Text } = Typography;
@@ -146,6 +147,15 @@ export default function IndicesPage() {
           dataSource={indices}
           loading={isLoading}
           rowKey="name"
+          locale={{
+            emptyText: (
+              <EmptyState
+                icon={FileText}
+                title="No Indices Found"
+                description={`No indices found in ${selectedVectorStore}. Create an index by running an ingestion job.`}
+              />
+            ),
+          }}
         />
       </Card>
     </div>
