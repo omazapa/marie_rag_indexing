@@ -318,16 +318,20 @@ def collect_all_field_paths(
             continue
 
         for key, value in doc.items():
+            # Skip MongoDB internal fields at root level
+            if not prefix and key.startswith("$"):
+                continue
+
             current_path = f"{prefix}{key}" if prefix else key
             all_paths.add(current_path)
 
             # Recursively process nested objects
-            if isinstance(value, dict):
+            if isinstance(value, dict) and value:  # Only if dict is not empty
                 nested_paths = collect_all_field_paths([value], f"{current_path}.", max_depth)
                 all_paths.update(nested_paths)
-            # Process arrays of objects
-            elif isinstance(value, list):
-                # Collect all objects from the array
+            # Process arrays
+            elif isinstance(value, list) and value:  # Only if list is not empty
+                # Collect all unique objects from the array
                 objects_in_array = [item for item in value if isinstance(item, dict)]
                 if objects_in_array:
                     nested_paths = collect_all_field_paths(
