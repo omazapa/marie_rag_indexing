@@ -391,6 +391,10 @@ export default function SourcesPage() {
           // Keep as string if not valid JSON
         }
       }
+      // Handle objects/arrays that need to be stringified for backend
+      else if (typeof val === 'object' && val !== null) {
+        typedConfig[key] = JSON.stringify(val);
+      }
     });
 
     updateSourceMutation.mutate({
@@ -418,9 +422,36 @@ export default function SourcesPage() {
   const handleOpenEditModal = (source: DataSource) => {
     setSelectedSourceForEdit(source);
     setIsEditModalOpen(true);
+
+    // Parse/stringify fields appropriately for the form
+    const parsedConfig = { ...source.config };
+    Object.keys(parsedConfig).forEach(key => {
+      const val = parsedConfig[key];
+      // Fields that should be objects/arrays (not text inputs)
+      const objectFields = ['selected_collections', 'content_fields', 'metadata_fields'];
+
+      if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
+        try {
+          // Parse JSON strings to objects for object fields
+          if (objectFields.includes(key)) {
+            parsedConfig[key] = JSON.parse(val);
+          }
+          // Keep as JSON string for text fields like query, custom_query, filter_query
+        } catch {
+          // Keep as string if not valid JSON
+        }
+      } else if (typeof val === 'object' && val !== null) {
+        // Convert objects to JSON strings for text input fields
+        const textFields = ['query', 'custom_query', 'filter_query'];
+        if (textFields.includes(key)) {
+          parsedConfig[key] = JSON.stringify(val, null, 2);
+        }
+      }
+    });
+
     editForm.setFieldsValue({
       name: source.name,
-      ...source.config
+      ...parsedConfig
     });
   };
 

@@ -32,14 +32,18 @@ You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generatio
 - Focus on solving the problem, not documenting what was done
 - After completing a task, stop - don't list what was changed
 
-### Commit Workflow
-- **ABSOLUTELY NEVER make git commits automatically**
-- **ONLY commit when the user explicitly asks for it**
-- **NEVER ask the user to commit**
-- **NEVER suggest commits to the user**
-- **NEVER prompt for commits**
-- When code changes are made, simply continue working without mentioning commits
-- The user will handle all git operations manually unless they specifically request a commit
+### Commit Workflow - CRITICAL RULES
+- **❌ ABSOLUTELY NEVER make git commits automatically**
+- **❌ NEVER run `git commit` unless the user explicitly says "make a commit" or "commit this"**
+- **❌ NEVER ask the user to commit**
+- **❌ NEVER suggest commits to the user**
+- **❌ NEVER prompt for commits**
+- **❌ NEVER say "let's commit" or "ready to commit" or similar**
+- **❌ DO NOT run `git add` or `git status` unless explicitly asked**
+- **✅ When code changes are made, simply continue working without mentioning commits**
+- **✅ The user will handle ALL git operations manually unless they specifically request a commit**
+- **✅ If you're unsure whether to commit, DON'T - wait for explicit instruction**
+- **⚠️ This rule is violated frequently - ALWAYS double-check before running any git command**
 
 ### Backend (Python/FastAPI)
 - Use Pydantic for data validation and schema definitions.

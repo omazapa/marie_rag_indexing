@@ -7,7 +7,8 @@ authors = [
 ]
 dependencies = [
     "fastapi>=0.115.0",
-    "granian[reload]>=1.6.0",
+    "uvicorn[standard]>=0.34.0",
+    "watchfiles>=0.24.0",
     "pydantic>=2.10.0",
     "langchain>=0.3.0",
     "langchain-community>=0.3.0",

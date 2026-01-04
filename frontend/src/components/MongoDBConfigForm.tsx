@@ -79,6 +79,66 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
   const queryMode = Form.useWatch('query_mode', form) || 'all';
   const dataSourceMode = Form.useWatch('data_source_mode', form) || 'collections';
 
+  // Initialize form state from existing values (edit mode)
+  useEffect(() => {
+    const formValues = form.getFieldsValue();
+
+    // If we have connection_string and it's not connected yet, test connection
+    if (formValues.connection_string && !isConnected) {
+      testConnection();
+    }
+
+    // Restore selected collections state
+    if (formValues.selected_collections) {
+      const keys: React.Key[] = [];
+      let selectedCols = formValues.selected_collections;
+
+      // Parse if it's a JSON string
+      if (typeof selectedCols === 'string') {
+        try {
+          selectedCols = JSON.parse(selectedCols);
+        } catch {
+          selectedCols = {};
+        }
+      }
+
+      Object.entries(selectedCols as Record<string, string[]>).forEach(([collection, fields]) => {
+        // Ensure fields is an array
+        const fieldArray = Array.isArray(fields) ? fields : [];
+        fieldArray.forEach((field) => {
+          keys.push(`${collection}:${field}`);
+        });
+      });
+      setCheckedKeys(keys);
+    }
+
+    // Restore content fields state
+    if (formValues.content_fields) {
+      let contentFieldsArray = formValues.content_fields;
+
+      // Parse if it's a JSON string
+      if (typeof contentFieldsArray === 'string') {
+        try {
+          contentFieldsArray = JSON.parse(contentFieldsArray);
+        } catch {
+          contentFieldsArray = [];
+        }
+      }
+
+      if (Array.isArray(contentFieldsArray)) {
+        const contentSet = new Set<string>();
+        contentFieldsArray.forEach((field: string) => {
+          // Find the full key in checked keys
+          const fullKey = checkedKeys.find(k => k.toString().endsWith(`:${field}`));
+          if (fullKey) {
+            contentSet.add(fullKey.toString());
+          }
+        });
+        setContentFields(contentSet);
+      }
+    }
+  }, []);
+
   const testConnection = async () => {
     if (!connectionString) {
       message.warning('Please enter a connection string first');
@@ -354,13 +414,13 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     <div className="space-y-4">
       {/* Hidden fields for MongoDB config */}
       <Form.Item name="selected_collections" hidden>
-        <Input />
+        <Input type="hidden" />
       </Form.Item>
       <Form.Item name="content_fields" hidden>
-        <Input />
+        <Input type="hidden" />
       </Form.Item>
       <Form.Item name="metadata_fields" hidden>
-        <Input />
+        <Input type="hidden" />
       </Form.Item>
 
       {/* Connection Section */}
@@ -527,7 +587,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
                         <strong>✓ Check fields</strong> to include in indexing.<br/>
                         <strong>Then choose for each field:</strong>
                       </Paragraph>
-                      <Space size="small" direction="vertical" className="ml-4">
+                      <Space size="small" orientation="vertical" className="ml-4">
                         <div>🔍 <strong>Vectorize</strong> = Field content will be converted to embeddings for semantic search</div>
                         <div>📋 <strong>Metadata</strong> = Field stored as-is for filtering and display (not searchable)</div>
                       </Space>

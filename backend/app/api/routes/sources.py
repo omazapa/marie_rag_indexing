@@ -11,8 +11,30 @@ from ...infrastructure.adapters.data_sources.mongodb import MongoDBAdapter
 from ...infrastructure.adapters.data_sources.s3 import S3Adapter
 from ...infrastructure.adapters.data_sources.sql import SQLAdapter
 from ...infrastructure.adapters.data_sources.web_scraper import WebScraperAdapter
+from ...infrastructure.persistence.json_store import JSONStore
 
 router = APIRouter()
+
+# Initialize persistent storage
+sources_store = JSONStore("data_sources.json")
+
+
+# Load sources from storage on startup
+def _load_sources() -> list[dict[str, Any]]:
+    sources = sources_store.load()
+    if not sources:
+        # Initialize with default source
+        default_source = {
+            "id": "1",
+            "name": "Local Docs",
+            "type": "local_file",
+            "status": "active",
+            "lastRun": "2025-12-23 10:00",
+            "config": {"path": "./docs"},
+        }
+        sources_store.save([default_source])
+        return [default_source]
+    return sources
 
 
 class SourceCreate(BaseModel):
@@ -58,56 +80,54 @@ data_sources: list[dict[str, Any]] = [
 @router.get("/sources")
 async def get_sources():
     """Get all configured data sources."""
-    return {"sources": data_sources}
+    sources = sources_store.load()
+    return {"sources": sources}
 
 
 @router.post("/sources")
 async def add_source(source: SourceCreate):
     """Add a new data source configuration."""
+    sources = sources_store.load()
     new_source = {
-        "id": str(len(data_sources) + 1),
+        "id": str(len(sources) + 1),
         "name": source.name,
         "type": source.type,
         "status": "inactive",
         "lastRun": "N/A",
         "config": source.config,
     }
-    data_sources.append(new_source)
+    sources_store.add(new_source)
     return new_source
 
 
 @router.put("/sources/{source_id}")
 async def update_source(source_id: str, source: SourceUpdate):
     """Update an existing data source configuration."""
-    # Find the source
-    existing_source = next((s for s in data_sources if s["id"] == source_id), None)
+    existing_source = sources_store.get(source_id)
     if not existing_source:
         raise HTTPException(status_code=404, detail="Source not found")
 
-    # Update fields
+    # Build updates dict
+    updates = {}
     if source.name is not None:
-        existing_source["name"] = source.name
+        updates["name"] = source.name
     if source.config is not None:
-        existing_source["config"] = source.config
+        updates["config"] = source.config
     if source.status is not None:
-        existing_source["status"] = source.status
+        updates["status"] = source.status
 
-    return existing_source
+    sources_store.update(source_id, updates)
+    return sources_store.get(source_id)
 
 
 @router.delete("/sources/{source_id}")
 async def delete_source(source_id: str):
     """Delete a data source configuration."""
-    global data_sources
-
-    # Find the source
-    source = next((s for s in data_sources if s["id"] == source_id), None)
-    if not source:
+    existing_source = sources_store.get(source_id)
+    if not existing_source:
         raise HTTPException(status_code=404, detail="Source not found")
 
-    # Remove from list
-    data_sources = [s for s in data_sources if s["id"] != source_id]
-
+    sources_store.delete(source_id)
     return {"message": "Source deleted successfully"}
 
 
