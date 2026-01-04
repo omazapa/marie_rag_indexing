@@ -3,7 +3,8 @@ import { apiClientWithRetry } from './api';
 export interface DataSource {
   id: string;
   name: string;
-  type: string;
+  type?: string; // Legacy field for backward compatibility
+  source_type?: string; // New field from OpenSearch
   status: 'active' | 'inactive' | 'error';
   lastRun: string;
   config: Record<string, unknown>;

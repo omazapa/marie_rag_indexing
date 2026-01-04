@@ -87,6 +87,16 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     if (formValues.connection_string && !isConnected) {
       testConnection();
     }
+  }, []);
+
+  // Restore selected collections and fields after tree data is loaded
+  useEffect(() => {
+    if (treeData.length === 0) return; // Wait for tree data to load
+
+    const formValues = form.getFieldsValue();
+    
+    // Check if we already restored (to avoid infinite loops)
+    if (checkedKeys.length > 0) return;
 
     // Restore selected collections state
     if (formValues.selected_collections) {
@@ -102,42 +112,49 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
         }
       }
 
-      Object.entries(selectedCols as Record<string, string[]>).forEach(([collection, fields]) => {
-        // Ensure fields is an array
-        const fieldArray = Array.isArray(fields) ? fields : [];
-        fieldArray.forEach((field) => {
-          keys.push(`${collection}:${field}`);
-        });
-      });
-      setCheckedKeys(keys);
-    }
+      Object.entries(selectedCols as Record<string, string[]>).forEach(
+        ([collection, fields]) => {
+          // Ensure fields is an array
+          const fieldArray = Array.isArray(fields) ? fields : [];
+          fieldArray.forEach((field) => {
+            keys.push(`${collection}:${field}`);
+          });
+        }
+      );
 
-    // Restore content fields state
-    if (formValues.content_fields) {
-      let contentFieldsArray = formValues.content_fields;
+      if (keys.length > 0) {
+        setCheckedKeys(keys);
 
-      // Parse if it's a JSON string
-      if (typeof contentFieldsArray === 'string') {
-        try {
-          contentFieldsArray = JSON.parse(contentFieldsArray);
-        } catch {
-          contentFieldsArray = [];
+        // Restore content fields state after checkedKeys is set
+        if (formValues.content_fields) {
+          let contentFieldsArray = formValues.content_fields;
+
+          // Parse if it's a JSON string
+          if (typeof contentFieldsArray === 'string') {
+            try {
+              contentFieldsArray = JSON.parse(contentFieldsArray);
+            } catch {
+              contentFieldsArray = [];
+            }
+          }
+
+          if (Array.isArray(contentFieldsArray)) {
+            const contentSet = new Set<string>();
+            contentFieldsArray.forEach((field: string) => {
+              // Find the full key in the keys we just restored
+              const fullKey = keys.find((k) => k.toString().endsWith(`:${field}`));
+              if (fullKey) {
+                contentSet.add(fullKey.toString());
+              }
+            });
+            if (contentSet.size > 0) {
+              setContentFields(contentSet);
+            }
+          }
         }
       }
-
-      if (Array.isArray(contentFieldsArray)) {
-        const contentSet = new Set<string>();
-        contentFieldsArray.forEach((field: string) => {
-          // Find the full key in checked keys
-          const fullKey = checkedKeys.find(k => k.toString().endsWith(`:${field}`));
-          if (fullKey) {
-            contentSet.add(fullKey.toString());
-          }
-        });
-        setContentFields(contentSet);
-      }
     }
-  }, []);
+  }, [treeData, form, checkedKeys.length]);
 
   const testConnection = async () => {
     if (!connectionString) {
@@ -389,26 +406,6 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     form.setFieldValue('content_fields', contentFieldsList);
     form.setFieldValue('metadata_fields', metadataFieldsList);
   }, [checkedKeys, contentFields, form]);
-
-  // Load existing selected collections when editing
-  useEffect(() => {
-    const existingCollections = form.getFieldValue('selected_collections');
-    if (existingCollections && typeof existingCollections === 'object' && Object.keys(existingCollections).length > 0) {
-      const keysToCheck: React.Key[] = [];
-
-      Object.entries(existingCollections).forEach(([collection, fields]) => {
-        if (Array.isArray(fields)) {
-          fields.forEach((field: string) => {
-            keysToCheck.push(`${collection}:${field}`);
-          });
-        }
-      });
-
-      if (keysToCheck.length > 0) {
-        setCheckedKeys(keysToCheck);
-      }
-    }
-  }, [form, treeData]);
 
   return (
     <div className="space-y-4">

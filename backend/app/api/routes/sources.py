@@ -11,30 +11,12 @@ from ...infrastructure.adapters.data_sources.mongodb import MongoDBAdapter
 from ...infrastructure.adapters.data_sources.s3 import S3Adapter
 from ...infrastructure.adapters.data_sources.sql import SQLAdapter
 from ...infrastructure.adapters.data_sources.web_scraper import WebScraperAdapter
-from ...infrastructure.persistence.json_store import JSONStore
+from ...infrastructure.persistence.opensearch_store import OpenSearchStore
 
 router = APIRouter()
 
-# Initialize persistent storage
-sources_store = JSONStore("data_sources.json")
-
-
-# Load sources from storage on startup
-def _load_sources() -> list[dict[str, Any]]:
-    sources = sources_store.load()
-    if not sources:
-        # Initialize with default source
-        default_source = {
-            "id": "1",
-            "name": "Local Docs",
-            "type": "local_file",
-            "status": "active",
-            "lastRun": "2025-12-23 10:00",
-            "config": {"path": "./docs"},
-        }
-        sources_store.save([default_source])
-        return [default_source]
-    return sources
+# Initialize OpenSearch storage for data sources
+sources_store = OpenSearchStore("marie_rag_indexing_sources")
 
 
 class SourceCreate(BaseModel):
@@ -63,40 +45,30 @@ DATA_SOURCE_PLUGINS = {
     "google_drive": GoogleDriveAdapter,
 }
 
-# In-memory storage for demo purposes
-# TODO: Replace with database persistence
-data_sources: list[dict[str, Any]] = [
-    {
-        "id": "1",
-        "name": "Local Docs",
-        "type": "local_file",
-        "status": "active",
-        "lastRun": "2025-12-23 10:00",
-        "config": {"path": "./docs"},
-    },
-]
-
 
 @router.get("/sources")
 async def get_sources():
     """Get all configured data sources."""
-    sources = sources_store.load()
+    sources = sources_store.list()
     return {"sources": sources}
 
 
 @router.post("/sources")
 async def add_source(source: SourceCreate):
     """Add a new data source configuration."""
-    sources = sources_store.load()
-    new_source = {
-        "id": str(len(sources) + 1),
-        "name": source.name,
-        "type": source.type,
-        "status": "inactive",
-        "lastRun": "N/A",
-        "config": source.config,
-    }
-    sources_store.add(new_source)
+    import uuid
+
+    source_id = str(uuid.uuid4())
+    new_source = sources_store.create(
+        source_id,
+        {
+            "name": source.name,
+            "source_type": source.type,
+            "status": "inactive",
+            "lastRun": "N/A",
+            "config": source.config,
+        },
+    )
     return new_source
 
 

@@ -25,7 +25,7 @@ from ...infrastructure.adapters.vector_stores.pgvector import PGVectorAdapter
 from ...infrastructure.adapters.vector_stores.pinecone import PineconeAdapter
 from ...infrastructure.adapters.vector_stores.qdrant import QdrantAdapter
 from ...infrastructure.logging.log_manager import log_manager, stream_logs
-from ...infrastructure.persistence.json_store import JSONStore
+from ...infrastructure.persistence.opensearch_store import OpenSearchStore
 
 router = APIRouter()
 
@@ -33,8 +33,8 @@ router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize persistent storage for jobs
-jobs_store = JSONStore("ingestion_jobs.json")
+# Initialize OpenSearch storage for jobs
+jobs_store = OpenSearchStore("marie_rag_indexing_jobs")
 
 # Track running threads
 active_threads: dict[str, threading.Thread] = {}
@@ -135,7 +135,7 @@ async def trigger_ingestion(request: IngestionRequest, background_tasks: Backgro
             "max_workers": request.max_workers,
         },
     }
-    jobs_store.add(job_data)
+    jobs_store.create(job_id, job_data)
 
     # Callback to update progress
     def update_progress(docs, chunks):
@@ -246,7 +246,7 @@ async def get_ingestion_logs():
 @router.get("/jobs")
 async def get_jobs():
     """Get all ingestion jobs."""
-    jobs_list = jobs_store.load()
+    jobs_list = jobs_store.list()
     # Sort by started_at descending
     jobs_list.sort(key=lambda x: x.get("started_at", ""), reverse=True)
     return {"jobs": jobs_list}
@@ -342,7 +342,7 @@ async def retry_job(job_id: str, background_tasks: BackgroundTasks):
         "retried_from": job_id,
         "config": config,  # Copy config for future retries
     }
-    jobs_store.add(job_data)
+    jobs_store.create(new_job_id, job_data)
 
     # Callback to update progress
     def update_retry_progress(docs, chunks):

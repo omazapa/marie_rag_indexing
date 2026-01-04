@@ -229,8 +229,15 @@ export default function SourcesPage() {
     }
   });
 
+  // Helper to get source type (handles both old 'type' and new 'source_type' fields)
+  const getSourceType = (source: DataSource): string => {
+    return source.source_type || source.type || 'unknown';
+  };
+
   // Helper function to get icon for source type
-  const getSourceIcon = (type: string) => {
+  const getSourceIcon = (type: string | undefined) => {
+    if (!type) return <FileText size={16} className="text-gray-500" />;
+    
     switch (type.toLowerCase()) {
       case 'mongodb':
       case 'sql':
@@ -246,7 +253,9 @@ export default function SourcesPage() {
   };
 
   // Helper function to get description for source type
-  const getSourceDescription = (type: string): string => {
+  const getSourceDescription = (type: string | undefined): string => {
+    if (!type) return 'Data source';
+    
     switch (type.toLowerCase()) {
       case 'sql':
         return 'Connect to PostgreSQL, MySQL, or other SQL databases. Extract data from tables with customizable queries. Best for structured content with rich metadata.';
@@ -277,9 +286,11 @@ export default function SourcesPage() {
     },
     {
       title: 'Type',
-      dataIndex: 'type',
       key: 'type',
-      render: (type: string) => <Tag color="blue">{type.toUpperCase().replace('_', ' ')}</Tag>,
+      render: (_: unknown, record: DataSource) => {
+        const sourceType = getSourceType(record);
+        return <Tag color="blue">{sourceType.toUpperCase().replace('_', ' ')}</Tag>;
+      },
     },
     {
       title: 'Status',
@@ -796,7 +807,7 @@ export default function SourcesPage() {
             const { vector_store, index_name, execution_mode, max_workers, strategy, chunk_size, chunk_overlap, separators, encoding_name, ...vs_config } = values;
 
             ingestMutation.mutate({
-              plugin_id: selectedSourceForIngest.type,
+              plugin_id: getSourceType(selectedSourceForIngest),
               config: selectedSourceForIngest.config,
               chunk_settings: {
                 strategy,
@@ -1028,7 +1039,7 @@ export default function SourcesPage() {
             Save Changes
           </Button>
         ]}
-        width={selectedSourceForEdit?.type === 'mongodb' ? 800 : 600}
+        width={selectedSourceForEdit && getSourceType(selectedSourceForEdit) === 'mongodb' ? 800 : 600}
       >
         <Alert
           title="Editing Configuration"
@@ -1045,15 +1056,15 @@ export default function SourcesPage() {
 
           <Divider />
 
-          {selectedSourceForEdit?.type === 'mongodb' ? (
+          {selectedSourceForEdit && getSourceType(selectedSourceForEdit) === 'mongodb' ? (
             <MongoDBConfigForm form={editForm} />
-          ) : selectedSourceForEdit?.type === 'sql' ? (
+          ) : selectedSourceForEdit && getSourceType(selectedSourceForEdit) === 'sql' ? (
             <SQLConfigForm />
-          ) : selectedSourceForEdit?.type === 's3' ? (
+          ) : selectedSourceForEdit && getSourceType(selectedSourceForEdit) === 's3' ? (
             <S3ConfigForm />
-          ) : selectedSourceForEdit?.type === 'web_scraper' ? (
+          ) : selectedSourceForEdit && getSourceType(selectedSourceForEdit) === 'web_scraper' ? (
             <WebScraperConfigForm />
-          ) : selectedSourceForEdit?.type === 'google_drive' ? (
+          ) : selectedSourceForEdit && getSourceType(selectedSourceForEdit) === 'google_drive' ? (
             <GoogleDriveConfigForm />
           ) : (
             <Alert
