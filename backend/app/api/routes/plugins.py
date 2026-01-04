@@ -2,7 +2,8 @@
 
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
@@ -13,7 +14,13 @@ from ...infrastructure.adapters.data_sources.s3 import S3Adapter
 from ...infrastructure.adapters.data_sources.sql import SQLAdapter
 from ...infrastructure.adapters.data_sources.web_scraper import WebScraperAdapter
 
-plugins_bp = Blueprint("plugins", __name__)
+router = APIRouter()
+
+
+class MongoConnectionRequest(BaseModel):
+    connection_string: str
+    database: str | None = None
+
 
 DATA_SOURCE_PLUGINS = {
     "local_file": LocalFileAdapter,
@@ -25,98 +32,90 @@ DATA_SOURCE_PLUGINS = {
 }
 
 
-@plugins_bp.route("/plugins", methods=["GET"])
-def list_plugins():
+@router.get("/plugins")
+async def list_plugins():
     """List all available data source plugins."""
-    return jsonify(
-        {
-            "plugins": [
-                {"id": "local_file", "name": "Local File System"},
-                {"id": "s3", "name": "S3 / MinIO"},
-                {"id": "mongodb", "name": "MongoDB"},
-                {"id": "sql", "name": "SQL Database"},
-                {"id": "web_scraper", "name": "Web Scraper"},
-                {"id": "google_drive", "name": "Google Drive"},
-            ]
-        }
-    ), 200
+    return {
+        "plugins": [
+            {"id": "local_file", "name": "Local File System"},
+            {"id": "s3", "name": "S3 / MinIO"},
+            {"id": "mongodb", "name": "MongoDB"},
+            {"id": "sql", "name": "SQL Database"},
+            {"id": "web_scraper", "name": "Web Scraper"},
+            {"id": "google_drive", "name": "Google Drive"},
+        ]
+    }
 
 
-@plugins_bp.route("/plugins/<plugin_id>/schema", methods=["GET"])
-def get_plugin_schema(plugin_id):
+@router.get("/plugins/{plugin_id}/schema")
+async def get_plugin_schema(plugin_id: str):
     """Get configuration schema for a specific plugin."""
     plugin_class = DATA_SOURCE_PLUGINS.get(plugin_id)
     if not plugin_class:
-        return jsonify({"error": "Plugin not found"}), 404
+        raise HTTPException(status_code=404, detail="Plugin not found")
     try:
-        return jsonify(plugin_class.get_config_schema()), 200
+        return plugin_class.get_config_schema()
     except NotImplementedError:
-        return jsonify({"error": "Schema not implemented for this plugin"}), 501
+        raise HTTPException(
+            status_code=501, detail="Schema not implemented for this plugin"
+        ) from None
 
 
-@plugins_bp.route("/plugins/mongodb/databases", methods=["POST"])
-def list_mongodb_databases():
+@router.post("/plugins/mongodb/databases")
+async def list_mongodb_databases(request: MongoConnectionRequest):
     """List all databases in a MongoDB instance."""
-    data = request.json
-    if not data or "connection_string" not in data:
-        return jsonify({"error": "Missing connection_string"}), 400
-
-    conn_str = data["connection_string"]
     try:
-        client: MongoClient[Any] = MongoClient(conn_str, serverSelectionTimeoutMS=5000)
+        client: MongoClient[Any] = MongoClient(
+            request.connection_string, serverSelectionTimeoutMS=5000
+        )
         databases = client.list_database_names()
-        return jsonify({"databases": databases}), 200
-    except ServerSelectionTimeoutError:
+        return {"databases": databases}
+    except ServerSelectionTimeoutError as e:
         error_msg = "Connection Timeout. MongoDB is not reachable."
         error_msg += " Ensure MongoDB is running on your host and allows connections on port 27017."
-        return jsonify({"error": error_msg}), 500
+        raise HTTPException(status_code=500, detail=error_msg) from e
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@plugins_bp.route("/plugins/mongodb/collections", methods=["POST"])
-def list_mongodb_collections():
+@router.post("/plugins/mongodb/collections")
+async def list_mongodb_collections(request: MongoConnectionRequest):
     """List all collections in a MongoDB database."""
-    data = request.json
-    if not data or "connection_string" not in data or "database" not in data:
-        return jsonify({"error": "Missing connection_string or database"}), 400
+    if not request.database:
+        raise HTTPException(status_code=400, detail="Missing database parameter")
 
-    conn_str = data["connection_string"]
     try:
-        client: MongoClient[Any] = MongoClient(conn_str, serverSelectionTimeoutMS=5000)
-        db = client[data["database"]]
+        client: MongoClient[Any] = MongoClient(
+            request.connection_string, serverSelectionTimeoutMS=5000
+        )
+        db = client[request.database]
         collections = db.list_collection_names()
-        return jsonify({"collections": collections}), 200
-    except ServerSelectionTimeoutError:
+        return {"collections": collections}
+    except ServerSelectionTimeoutError as e:
         error_msg = "Connection Timeout. MongoDB is not reachable."
-        return jsonify({"error": error_msg}), 500
+        raise HTTPException(status_code=500, detail=error_msg) from e
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@plugins_bp.route("/mongodb/schema", methods=["GET"])
-def get_mongodb_schema():
+@router.get("/mongodb/schema")
+async def get_mongodb_schema(
+    connection_string: str = Query(...),
+    database: str = Query(...),
+    collection: str = Query(...),
+):
     """Analyze schema from a MongoDB collection using aggregation pipeline."""
-    conn_str = request.args.get("connection_string")
-    db_name = request.args.get("database")
-    coll_name = request.args.get("collection")
-
-    if not conn_str or not db_name or not coll_name:
-        return jsonify({"error": "Missing parameters"}), 400
-
     try:
-        client: MongoClient[Any] = MongoClient(conn_str, serverSelectionTimeoutMS=5000)
-        db = client[db_name]
-        collection = db[coll_name]
+        client: MongoClient[Any] = MongoClient(connection_string, serverSelectionTimeoutMS=5000)
+        db = client[database]
+        coll = db[collection]
 
         # Get collection stats
-        stats = db.command("collStats", coll_name)
+        stats = db.command("collStats", collection)
         doc_count = stats.get("count", 0)
 
         if doc_count == 0:
-            return jsonify(
-                {"schema": {}, "totalDocuments": 0, "message": "Collection is empty"}
-            ), 200
+            return {"schema": {}, "totalDocuments": 0, "message": "Collection is empty"}
 
         # Sample size: up to 100 documents or all if less
         sample_size = min(100, doc_count)
@@ -127,26 +126,24 @@ def get_mongodb_schema():
         # Analyze field types and presence
         field_analysis: dict[str, Any] = {}
 
-        for doc in collection.aggregate(pipeline):
+        for doc in coll.aggregate(pipeline):
             analyze_document(doc["document"], field_analysis, sample_size)
 
         # Build schema result
         schema_result = build_schema_result(field_analysis, sample_size)
 
         # Get one sample document for preview
-        sample_doc = collection.find_one()
+        sample_doc = coll.find_one()
 
-        return jsonify(
-            {
-                "schema": schema_result,
-                "totalDocuments": doc_count,
-                "sampledDocuments": sample_size,
-                "sampleDocument": sample_doc,
-            }
-        ), 200
+        return {
+            "schema": schema_result,
+            "totalDocuments": doc_count,
+            "sampledDocuments": sample_size,
+            "sampleDocument": sample_doc,
+        }
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 def get_value_type(value: Any) -> str:

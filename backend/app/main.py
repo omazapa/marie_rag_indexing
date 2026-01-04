@@ -1,40 +1,44 @@
 """
-Main Flask application factory.
-Refactored to use Flask Blueprints for better code organization.
+Main FastAPI application.
+Refactored from Flask to FastAPI for better performance and async support.
 """
 
 from dotenv import load_dotenv
-from flask import Flask
-from flask_cors import CORS
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from .api import register_blueprints
+from .api import register_routers
 
 load_dotenv()
 
 
-def create_app():
-    """Create and configure the Flask application."""
-    app = Flask(__name__)
-
-    # Enable CORS for all routes and all origins with explicit settings
-    CORS(
-        app,
-        resources={
-            r"/*": {
-                "origins": "*",
-                "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Methods"],
-                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            }
-        },
+def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
+    app = FastAPI(
+        title="Marie RAG Indexing API",
+        description="A modular and scalable system for RAG indexing with multiple sources",
+        version="0.1.0",
     )
 
-    # Register all API blueprints
-    register_blueprints(app)
+    # Enable CORS for all routes
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-    print("Flask app created with modular Blueprint architecture and robust CORS enabled")
+    # Register all API routers
+    register_routers(app)
+
+    print("FastAPI app created with modular architecture and CORS enabled")
     return app
 
 
+app = create_app()
+
 if __name__ == "__main__":
-    app = create_app()
-    app.run(debug=True, host="0.0.0.0", port=5001)
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=5001, reload=True)

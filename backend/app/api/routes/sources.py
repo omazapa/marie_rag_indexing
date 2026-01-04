@@ -2,7 +2,8 @@
 
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from ...infrastructure.adapters.data_sources.google_drive import GoogleDriveAdapter
 from ...infrastructure.adapters.data_sources.local_file import LocalFileAdapter
@@ -11,7 +12,25 @@ from ...infrastructure.adapters.data_sources.s3 import S3Adapter
 from ...infrastructure.adapters.data_sources.sql import SQLAdapter
 from ...infrastructure.adapters.data_sources.web_scraper import WebScraperAdapter
 
-sources_bp = Blueprint("sources", __name__)
+router = APIRouter()
+
+
+class SourceCreate(BaseModel):
+    name: str
+    type: str
+    config: dict[str, Any] = {}
+
+
+class SourceUpdate(BaseModel):
+    name: str | None = None
+    config: dict[str, Any] | None = None
+    status: str | None = None
+
+
+class SourceTestConnection(BaseModel):
+    type: str
+    config: dict[str, Any]
+
 
 DATA_SOURCE_PLUGINS = {
     "local_file": LocalFileAdapter,
@@ -36,86 +55,76 @@ data_sources: list[dict[str, Any]] = [
 ]
 
 
-@sources_bp.route("/sources", methods=["GET"])
-def get_sources():
+@router.get("/sources")
+async def get_sources():
     """Get all configured data sources."""
-    return jsonify({"sources": data_sources}), 200
+    return {"sources": data_sources}
 
 
-@sources_bp.route("/sources", methods=["POST"])
-def add_source():
+@router.post("/sources")
+async def add_source(source: SourceCreate):
     """Add a new data source configuration."""
-    data = request.json
     new_source = {
         "id": str(len(data_sources) + 1),
-        "name": data.get("name"),
-        "type": data.get("type"),
+        "name": source.name,
+        "type": source.type,
         "status": "inactive",
         "lastRun": "N/A",
-        "config": data.get("config", {}),
+        "config": source.config,
     }
     data_sources.append(new_source)
-    return jsonify(new_source), 201
+    return new_source
 
 
-@sources_bp.route("/sources/<source_id>", methods=["PUT"])
-def update_source(source_id: str):
+@router.put("/sources/{source_id}")
+async def update_source(source_id: str, source: SourceUpdate):
     """Update an existing data source configuration."""
-    data = request.json
-
     # Find the source
-    source = next((s for s in data_sources if s["id"] == source_id), None)
-    if not source:
-        return jsonify({"error": "Source not found"}), 404
+    existing_source = next((s for s in data_sources if s["id"] == source_id), None)
+    if not existing_source:
+        raise HTTPException(status_code=404, detail="Source not found")
 
     # Update fields
-    if "name" in data:
-        source["name"] = data["name"]
-    if "config" in data:
-        source["config"] = data["config"]
-    if "status" in data:
-        source["status"] = data["status"]
+    if source.name is not None:
+        existing_source["name"] = source.name
+    if source.config is not None:
+        existing_source["config"] = source.config
+    if source.status is not None:
+        existing_source["status"] = source.status
 
-    return jsonify(source), 200
+    return existing_source
 
 
-@sources_bp.route("/sources/<source_id>", methods=["DELETE"])
-def delete_source(source_id: str):
+@router.delete("/sources/{source_id}")
+async def delete_source(source_id: str):
     """Delete a data source configuration."""
     global data_sources
 
     # Find the source
     source = next((s for s in data_sources if s["id"] == source_id), None)
     if not source:
-        return jsonify({"error": "Source not found"}), 404
+        raise HTTPException(status_code=404, detail="Source not found")
 
     # Remove from list
     data_sources = [s for s in data_sources if s["id"] != source_id]
 
-    return jsonify({"message": "Source deleted successfully"}), 200
+    return {"message": "Source deleted successfully"}
 
 
-@sources_bp.route("/sources/test-connection", methods=["POST"])
-def test_source_connection():
+@router.post("/sources/test-connection")
+async def test_source_connection(test_data: SourceTestConnection):
     """Test connection to a data source without saving it."""
-    data = request.json
-    if not data or "type" not in data or "config" not in data:
-        return jsonify({"error": "Missing type or config"}), 400
-
-    plugin_id = data["type"]
-    config = data["config"]
-
-    plugin_class = DATA_SOURCE_PLUGINS.get(plugin_id)
+    plugin_class = DATA_SOURCE_PLUGINS.get(test_data.type)
     if not plugin_class:
-        return jsonify({"error": "Plugin not found"}), 404
+        raise HTTPException(status_code=404, detail="Plugin not found")
 
     try:
-        adapter = plugin_class(config)
+        adapter = plugin_class(test_data.config)
         success = adapter.test_connection()
-        return jsonify({"success": success}), 200
+        return {"success": success}
     except Exception as e:
         error_msg = str(e)
-        conn_str = config.get("connection_string", "")
+        conn_str = test_data.config.get("connection_string", "")
         if "localhost" in conn_str or "127.0.0.1" in conn_str:
             error_msg += " | TIP: Use 'host.docker.internal' instead of 'localhost' in Docker."
-        return jsonify({"success": False, "error": error_msg}), 200
+        return {"success": False, "error": error_msg}

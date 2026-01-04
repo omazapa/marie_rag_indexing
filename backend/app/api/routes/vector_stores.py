@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, HTTPException, Query
 
 from ...infrastructure.adapters.vector_stores.milvus import MilvusAdapter
 from ...infrastructure.adapters.vector_stores.opensearch import OpenSearchAdapter
@@ -10,7 +10,7 @@ from ...infrastructure.adapters.vector_stores.pgvector import PGVectorAdapter
 from ...infrastructure.adapters.vector_stores.pinecone import PineconeAdapter
 from ...infrastructure.adapters.vector_stores.qdrant import QdrantAdapter
 
-vector_stores_bp = Blueprint("vector_stores", __name__)
+router = APIRouter()
 
 VECTOR_STORE_PLUGINS = {
     "opensearch": OpenSearchAdapter,
@@ -21,67 +21,65 @@ VECTOR_STORE_PLUGINS = {
 }
 
 
-@vector_stores_bp.route("/vector_stores", methods=["GET"])
-def list_vector_stores():
+@router.get("/vector_stores")
+async def list_vector_stores():
     """List all available vector store options."""
-    return jsonify(
-        {
-            "vector_stores": [
-                {"id": "opensearch", "name": "OpenSearch"},
-                {"id": "pinecone", "name": "Pinecone"},
-                {"id": "qdrant", "name": "Qdrant"},
-                {"id": "milvus", "name": "Milvus"},
-                {"id": "pgvector", "name": "PostgreSQL (pgvector)"},
-            ]
-        }
-    ), 200
+    return {
+        "vector_stores": [
+            {"id": "opensearch", "name": "OpenSearch"},
+            {"id": "pinecone", "name": "Pinecone"},
+            {"id": "qdrant", "name": "Qdrant"},
+            {"id": "milvus", "name": "Milvus"},
+            {"id": "pgvector", "name": "PostgreSQL (pgvector)"},
+        ]
+    }
 
 
-@vector_stores_bp.route("/vector_stores/<vs_id>/schema", methods=["GET"])
-def get_vector_store_schema(vs_id):
+@router.get("/vector_stores/{vs_id}/schema")
+async def get_vector_store_schema(vs_id: str):
     """Get configuration schema for a specific vector store."""
     vs_class = VECTOR_STORE_PLUGINS.get(vs_id)
     if not vs_class:
-        return jsonify({"error": "Vector store not found"}), 404
+        raise HTTPException(status_code=404, detail="Vector store not found")
     try:
-        return jsonify(vs_class.get_config_schema()), 200
+        return vs_class.get_config_schema()
     except NotImplementedError:
-        return jsonify({"error": "Schema not implemented for this vector store"}), 501
+        raise HTTPException(
+            status_code=501, detail="Schema not implemented for this vector store"
+        ) from None
 
 
-@vector_stores_bp.route("/indices", methods=["GET"])
-def list_indices():
+@router.get("/indices")
+async def list_indices(vector_store: str = Query("opensearch")):
     """List all indices in the selected vector store."""
-    vector_store_id = request.args.get("vector_store", "opensearch")
     adapter: Any
-    if vector_store_id == "opensearch":
+    if vector_store == "opensearch":
         adapter = OpenSearchAdapter()
-    elif vector_store_id == "pinecone":
+    elif vector_store == "pinecone":
         adapter = PineconeAdapter()
     else:
-        return jsonify({"indices": []}), 200
+        return {"indices": []}
 
     try:
         indices = adapter.list_indices()
-        return jsonify({"indices": indices}), 200
+        return {"indices": indices}
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@vector_stores_bp.route("/indices/<index_name>", methods=["DELETE"])
-def delete_index(index_name):
+@router.delete("/indices/{index_name}")
+async def delete_index(index_name: str, vector_store: str = Query("opensearch")):
     """Delete an index from the selected vector store."""
-    vector_store_id = request.args.get("vector_store", "opensearch")
     adapter: Any
-    if vector_store_id == "opensearch":
+    if vector_store == "opensearch":
         adapter = OpenSearchAdapter()
-    elif vector_store_id == "pinecone":
+    elif vector_store == "pinecone":
         adapter = PineconeAdapter()
     else:
-        return jsonify({"error": "Unsupported vector store"}), 400
+        raise HTTPException(status_code=400, detail="Unsupported vector store")
 
     try:
         adapter.delete_index(index_name)
-        return jsonify({"status": "success"}), 200
+        return {"status": "success"}
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e)) from e

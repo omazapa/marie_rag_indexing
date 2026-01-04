@@ -5,7 +5,9 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from flask import Blueprint, Response, jsonify, request
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from ...application.services.assistant import ConnectorAssistant
 from ...application.services.chunking import ChunkConfig
@@ -23,7 +25,26 @@ from ...infrastructure.adapters.vector_stores.pinecone import PineconeAdapter
 from ...infrastructure.adapters.vector_stores.qdrant import QdrantAdapter
 from ...infrastructure.logging.log_manager import log_manager, stream_logs
 
-ingestion_bp = Blueprint("ingestion", __name__)
+router = APIRouter()
+
+
+class IngestionRequest(BaseModel):
+    plugin_id: str
+    config: dict[str, Any] = {}
+    chunk_settings: dict[str, Any] = {}
+    vector_store: str = "opensearch"
+    vector_store_config: dict[str, Any] = {}
+    index_name: str = "default_index"
+    embedding_model: str = "all-MiniLM-L6-v2"
+    embedding_provider: str = "huggingface"
+    embedding_config: dict[str, Any] = {}
+    execution_mode: str = "sequential"
+    max_workers: int = 4
+
+
+class AssistantRequest(BaseModel):
+    prompt: str
+
 
 DATA_SOURCE_PLUGINS = {
     "local_file": LocalFileAdapter,
@@ -58,53 +79,31 @@ embedding_models: list[dict[str, Any]] = [
 ]
 
 
-@ingestion_bp.route("/ingest", methods=["POST"])
-def trigger_ingestion():
+@router.post("/ingest")
+async def trigger_ingestion(request: IngestionRequest):
     """Trigger an ingestion job."""
-    data = request.json
-    plugin_id = data.get("plugin_id")
-    config = data.get("config", {})
-    chunk_settings = data.get("chunk_settings", {})
-    vector_store_id = data.get("vector_store", "opensearch")
-    vector_store_config = data.get("vector_store_config", {})
-    index_name = data.get("index_name", "default_index")
-    embedding_model = data.get("embedding_model", "all-MiniLM-L6-v2")
-    embedding_provider = data.get("embedding_provider", "huggingface")
-    embedding_config = data.get("embedding_config", {})
-    execution_mode = data.get("execution_mode", "sequential")
-    max_workers = data.get("max_workers", 4)
-
     # Data Source Adapter Selection
-    plugin_class: Any = DATA_SOURCE_PLUGINS.get(plugin_id)
+    plugin_class: Any = DATA_SOURCE_PLUGINS.get(request.plugin_id)
     if not plugin_class:
-        return (
-            jsonify({"status": "error", "message": f"Plugin {plugin_id} not supported"}),
-            400,
-        )
-    data_source = plugin_class(config)
+        raise HTTPException(status_code=400, detail=f"Plugin {request.plugin_id} not supported")
+    data_source = plugin_class(request.config)
 
     # Vector Store Adapter Selection
-    vs_class: Any = VECTOR_STORE_PLUGINS.get(vector_store_id)
+    vs_class: Any = VECTOR_STORE_PLUGINS.get(request.vector_store)
     if not vs_class:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": f"Vector store {vector_store_id} not supported",
-                }
-            ),
-            400,
+        raise HTTPException(
+            status_code=400, detail=f"Vector store {request.vector_store} not supported"
         )
-    vector_store = vs_class(vector_store_config)
+    vector_store = vs_class(request.vector_store_config)
 
     # Create job record
     job_id = str(uuid.uuid4())
     ingestion_jobs[job_id] = {
         "id": job_id,
         "status": "running",
-        "plugin_id": plugin_id,
-        "index_name": index_name,
-        "vector_store": vector_store_id,
+        "plugin_id": request.plugin_id,
+        "index_name": request.index_name,
+        "vector_store": request.vector_store,
         "started_at": datetime.utcnow().isoformat(),
         "completed_at": None,
         "documents_processed": 0,
@@ -112,17 +111,17 @@ def trigger_ingestion():
         "error": None,
     }
 
-    chunk_config = ChunkConfig(**chunk_settings)
+    chunk_config = ChunkConfig(**request.chunk_settings)
     orchestrator = IngestionOrchestrator(
         data_source=data_source,
         vector_store=vector_store,
         chunk_config=chunk_config,
-        index_name=index_name,
-        embedding_model=embedding_model,
-        embedding_provider=embedding_provider,
-        embedding_config=embedding_config,
-        execution_mode=execution_mode,
-        max_workers=max_workers,
+        index_name=request.index_name,
+        embedding_model=request.embedding_model,
+        embedding_provider=request.embedding_provider,
+        embedding_config=request.embedding_config,
+        execution_mode=request.execution_mode,
+        max_workers=request.max_workers,
     )
 
     def run_job():
@@ -142,52 +141,42 @@ def trigger_ingestion():
     thread = threading.Thread(target=run_job)
     thread.start()
 
-    return (
-        jsonify(
-            {
-                "status": "success",
-                "message": "Ingestion started",
-                "job_id": job_id,
-                "vector_store": vector_store_id,
-            }
-        ),
-        200,
-    )
+    return {
+        "status": "success",
+        "message": "Ingestion started",
+        "job_id": job_id,
+        "vector_store": request.vector_store,
+    }
 
 
-@ingestion_bp.route("/ingest/logs", methods=["GET"])
-def get_ingestion_logs():
+@router.get("/ingest/logs")
+async def get_ingestion_logs():
     """Stream ingestion logs via Server-Sent Events."""
     q = log_manager.subscribe()
-    return Response(stream_logs(q), mimetype="text/event-stream")
+    return StreamingResponse(stream_logs(q), media_type="text/event-stream")
 
 
-@ingestion_bp.route("/jobs", methods=["GET"])
-def get_jobs():
+@router.get("/jobs")
+async def get_jobs():
     """Get all ingestion jobs."""
     jobs_list = list(ingestion_jobs.values())
     # Sort by started_at descending
     jobs_list.sort(key=lambda x: x["started_at"], reverse=True)
-    return jsonify({"jobs": jobs_list}), 200
+    return {"jobs": jobs_list}
 
 
-@ingestion_bp.route("/jobs/<job_id>", methods=["GET"])
-def get_job(job_id):
+@router.get("/jobs/{job_id}")
+async def get_job(job_id: str):
     """Get details of a specific ingestion job."""
     job = ingestion_jobs.get(job_id)
     if not job:
-        return jsonify({"error": "Job not found"}), 404
-    return jsonify(job), 200
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
 
-@ingestion_bp.route("/assistant/connector", methods=["POST"])
-def assistant_connector():
+@router.post("/assistant/connector")
+async def assistant_connector(request: AssistantRequest):
     """Use AI assistant to suggest connector configuration."""
-    data = request.json
-    prompt = data.get("prompt")
-    if not prompt:
-        return jsonify({"error": "Missing prompt"}), 400
-
     # Try to find an Ollama model to use for the assistant
     ollama_url = "http://localhost:11434"
     assistant_model = "llama3"
@@ -198,5 +187,5 @@ def assistant_connector():
             break
 
     assistant = ConnectorAssistant(ollama_url=ollama_url, model=assistant_model)
-    suggestion = assistant.suggest_connector(prompt)
-    return jsonify(suggestion), 200
+    suggestion = assistant.suggest_connector(request.prompt)
+    return suggestion

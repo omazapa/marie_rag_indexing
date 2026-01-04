@@ -2,32 +2,28 @@
 
 import socket
 
-from flask import Blueprint, jsonify
+from fastapi import APIRouter
 
-health_bp = Blueprint("health", __name__)
+router = APIRouter()
 
 
-@health_bp.route("/health", methods=["GET"])
-def health_check():
+@router.get("/health")
+async def health_check():
     """Health check endpoint for monitoring service status."""
-    return jsonify({"status": "healthy", "service": "marie-rag-indexing-api"}), 200
+    return {"status": "healthy", "service": "marie-rag-indexing-api"}
 
 
-@health_bp.route("/api/v1/debug/network", methods=["GET"])
-def debug_network():
+@router.get("/api/v1/debug/network")
+async def debug_network():
     """Debug network connectivity for Docker environments."""
     try:
         host_ip = socket.gethostbyname("host.docker.internal")
-        return jsonify(
-            {
-                "host.docker.internal": host_ip,
-                "message": "DNS resolution for host.docker.internal is working.",
-            }
-        ), 200
+        return {
+            "host.docker.internal": host_ip,
+            "message": "DNS resolution for host.docker.internal is working.",
+        }
     except Exception as e:
-        return jsonify(
-            {
-                "error": str(e),
-                "tip": "DNS resolution failed. Ensure extra_hosts is set in docker-compose.yml",
-            }
-        ), 500
+        return {
+            "error": str(e),
+            "tip": "DNS resolution failed. Ensure extra_hosts is set in docker-compose.yml",
+        }

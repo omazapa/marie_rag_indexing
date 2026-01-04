@@ -2,14 +2,23 @@
 
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Query
+from pydantic import BaseModel
 
 from ...infrastructure.external_apis.model_search import (
     search_huggingface_models,
     search_ollama_models,
 )
 
-models_bp = Blueprint("models", __name__)
+router = APIRouter()
+
+
+class ModelCreate(BaseModel):
+    name: str
+    provider: str
+    model: str
+    config: dict[str, Any] = {}
+
 
 # In-memory storage for demo purposes
 # TODO: Replace with database persistence
@@ -33,44 +42,43 @@ embedding_models: list[dict[str, Any]] = [
 ]
 
 
-@models_bp.route("/models", methods=["GET"])
-def get_models():
+@router.get("/models")
+async def get_models():
     """Get all configured embedding models."""
-    return jsonify({"models": embedding_models}), 200
+    return {"models": embedding_models}
 
 
-@models_bp.route("/models", methods=["POST"])
-def add_model():
+@router.post("/models")
+async def add_model(model: ModelCreate):
     """Add a new embedding model configuration."""
-    data = request.json
     new_model = {
         "id": str(len(embedding_models) + 1),
-        "name": data.get("name"),
-        "provider": data.get("provider"),
-        "model": data.get("model"),
+        "name": model.name,
+        "provider": model.provider,
+        "model": model.model,
         "status": "active",
-        "config": data.get("config", {}),
+        "config": model.config,
     }
     embedding_models.append(new_model)
-    return jsonify(new_model), 201
+    return new_model
 
 
-@models_bp.route("/models/<model_id>", methods=["DELETE"])
-def delete_model(model_id):
+@router.delete("/models/{model_id}")
+async def delete_model(model_id: str):
     """Delete an embedding model configuration."""
     global embedding_models
     embedding_models = [m for m in embedding_models if m["id"] != model_id]
-    return jsonify({"status": "success"}), 200
+    return {"status": "success"}
 
 
-@models_bp.route("/models/search", methods=["GET"])
-def search_models():
+@router.get("/models/search")
+async def search_models(
+    provider: str = Query("huggingface"),
+    query: str = Query(""),
+):
     """Search for available embedding models."""
-    provider = request.args.get("provider", "huggingface")
-    query = request.args.get("query", "")
-
     if not query:
-        return jsonify({"results": []}), 200
+        return {"results": []}
 
     if provider == "huggingface":
         results = search_huggingface_models(query)
@@ -83,6 +91,6 @@ def search_models():
                 break
         results = search_ollama_models(query, base_url)
     else:
-        return jsonify({"error": "Unsupported provider"}), 400
+        return {"error": "Unsupported provider"}
 
-    return jsonify({"results": results}), 200
+    return {"results": results}

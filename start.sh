@@ -13,7 +13,7 @@ fuser -k 3000/tcp 2>/dev/null || true
 
 echo -e "${GREEN}Starting Backend on port 5001...${NC}"
 export PYTHONPATH=$PYTHONPATH:.
-uv run python -m backend.app.main &
+uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 5001 --reload &
 BACKEND_PID=$!
 
 echo -e "${GREEN}Starting Frontend on port 3001...${NC}"

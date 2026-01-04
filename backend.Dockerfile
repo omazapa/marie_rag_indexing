@@ -21,9 +21,6 @@ EXPOSE 5001
 
 # Set environment variables
 ENV PYTHONPATH=/app
-ENV FLASK_APP=backend/app/main.py
-ENV FLASK_RUN_PORT=5001
-ENV FLASK_RUN_HOST=0.0.0.0
 
-# Run the application
-CMD ["uv", "run", "python", "-m", "backend.app.main"]
+# Run the application with uvicorn
+CMD ["uv", "run", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "5001", "--reload"]
