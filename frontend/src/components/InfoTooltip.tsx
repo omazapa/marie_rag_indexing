@@ -23,7 +23,7 @@ export const InfoTooltip: React.FC<InfoTooltipProps> = ({
           <div className="text-xs">{content}</div>
         </div>
       }
-      overlayStyle={{ maxWidth: 300 }}
+      styles={{ root: { maxWidth: 300 } }}
     >
       <Icon size={14} className="text-gray-400 cursor-help hover:text-purple-600 transition-colors" />
     </Tooltip>
