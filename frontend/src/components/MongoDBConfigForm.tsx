@@ -7,7 +7,6 @@ import {
   App,
   Row,
   Col,
-  Divider,
   FormInstance,
   Card,
   Typography,
@@ -20,7 +19,9 @@ import {
   InputNumber,
   Tooltip,
   Spin,
+  Tree,
 } from 'antd';
+import type { TreeDataNode } from 'antd';
 import { mongodbService } from '@/services/mongodbService';
 import {
   Database,
@@ -28,11 +29,8 @@ import {
   Zap,
   CheckCircle2,
   AlertCircle,
-  FileText,
-  Eye,
-  Filter,
   Layers,
-  Info,
+  Filter,
 } from 'lucide-react';
 import { InfoTooltip } from './InfoTooltip';
 
@@ -54,23 +52,28 @@ interface SchemaField {
   arrayElementType?: string;
 }
 
+interface CollectionSchema {
+  fields: SchemaField[];
+  totalDocuments: number;
+  sampledDocuments: number;
+}
+
 export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) => {
   const { message } = App.useApp();
   const [databases, setDatabases] = useState<string[]>([]);
   const [collections, setCollections] = useState<string[]>([]);
-  const [schema, setSchema] = useState<SchemaField[]>([]);
-  const [sampleDoc, setSampleDoc] = useState<Record<string, unknown> | null>(null);
-  const [schemaStats, setSchemaStats] = useState<{ total: number; sampled: number } | null>(null);
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  const [collectionsSchemas, setCollectionsSchemas] = useState<Record<string, CollectionSchema>>({});
+  const [treeData, setTreeData] = useState<TreeDataNode[]>([]);
+  const [checkedKeys, setCheckedKeys] = useState<React.Key[]>([]);
+  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
   const [isLoadingDbs, setIsLoadingDbs] = useState(false);
   const [isLoadingCols, setIsLoadingCols] = useState(false);
-  const [isLoadingSchema, setIsLoadingSchema] = useState(false);
+  const [isLoadingSchemas, setIsLoadingSchemas] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   const connectionString = Form.useWatch('connection_string', form);
   const selectedDb = Form.useWatch('database', form);
-  const selectedCollection = Form.useWatch('collection', form);
   const queryMode = Form.useWatch('query_mode', form) || 'all';
 
   const testConnection = async () => {
@@ -143,44 +146,114 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     }
   }, [connectionString, message]);
 
-  const fetchSchema = useCallback(async (db: string, collection: string) => {
-    if (!connectionString || !db || !collection) return;
-    setIsLoadingSchema(true);
+  const fetchAllSchemas = useCallback(async (db: string, cols: string[]) => {
+    if (!connectionString || !db || cols.length === 0) return;
+
+    setIsLoadingSchemas(true);
     try {
-      const result = await mongodbService.getSchema(connectionString, db, collection);
+      const result = await mongodbService.getSchemasBatch(connectionString, db, cols);
 
-      // Convert schema object to field array
-      const fields: SchemaField[] = Object.entries(result.schema).map(([fieldPath, info]) => ({
-        name: fieldPath,
-        type: info.type,
-        types: info.types,
-        presence: info.presence,
-        count: info.count,
-        isNested: info.isNested,
-        isArray: info.isArray,
-        arrayElementType: info.arrayElementType,
-      }));
+      const schemasMap: Record<string, CollectionSchema> = {};
+      const treeNodes: TreeDataNode[] = [];
+      const autoExpandKeys: React.Key[] = [];
+      const autoCheckedKeys: React.Key[] = [];
 
-      setSchema(fields);
-      setSchemaStats({
-        total: result.totalDocuments,
-        sampled: result.sampledDocuments,
+      Object.entries(result.collections).forEach(([collectionName, collectionData]) => {
+        if (collectionData.error) {
+          message.warning(`Failed to load schema for ${collectionName}: ${collectionData.error}`);
+          return;
+        }
+
+        // Convert schema to field array
+        const fields: SchemaField[] = Object.entries(collectionData.schema).map(([fieldPath, info]) => {
+          const fieldInfo = info as Record<string, unknown>;
+          return {
+            name: fieldPath,
+            type: (fieldInfo.type as string) || ((fieldInfo.types as string[]) && (fieldInfo.types as string[]).length > 0 ? (fieldInfo.types as string[])[0] : 'unknown'),
+            types: (fieldInfo.types as string[]) || [],
+            presence: (fieldInfo.percentage as number) || (fieldInfo.presence as number) || 0,
+            count: (fieldInfo.count as number) || 0,
+            isNested: (fieldInfo.isNested as boolean) || false,
+            isArray: (fieldInfo.isArray as boolean) || false,
+            arrayElementType: fieldInfo.arrayElementType as string | undefined,
+          };
+        });
+
+        schemasMap[collectionName] = {
+          fields,
+          totalDocuments: collectionData.totalDocuments,
+          sampledDocuments: collectionData.sampledDocuments,
+        };
+
+        // Build tree node for collection
+        const collectionKey = `collection:${collectionName}`;
+        // Don't auto-expand - let user expand manually
+        // autoExpandKeys.push(collectionKey);
+
+        // Auto-select high-quality text fields
+        const fieldNodes: TreeDataNode[] = fields.map(field => {
+          const fieldKey = `${collectionName}:${field.name}`;
+          // Don't auto-select - let user select manually
+          // const isTextField = field.type === 'string' && field.presence > 70 && !field.name.startsWith('_');
+          // if (isTextField) {
+          //   autoCheckedKeys.push(fieldKey);
+          // }
+
+          return {
+            title: (
+              <Space size="small" className="w-full">
+                <Text strong className="flex-1">{field.name}</Text>
+                <Tag color={field.type === 'string' ? 'blue' : field.type === 'int' ? 'green' : 'default'} className="text-xs">
+                  {field.type}
+                </Tag>
+                {field.types.length > 1 && (
+                  <Tooltip title={`Multiple types: ${field.types.join(', ')}`}>
+                    <Tag color="warning" className="text-xs">mixed</Tag>
+                  </Tooltip>
+                )}
+                <Tag color={field.presence >= 90 ? 'success' : field.presence >= 50 ? 'warning' : 'default'} className="text-xs">
+                  {field.presence.toFixed(0)}%
+                </Tag>
+                {field.isArray && <Tag color="cyan" className="text-xs">array</Tag>}
+                {field.isNested && <Tag color="purple" className="text-xs">nested</Tag>}
+              </Space>
+            ),
+            key: fieldKey,
+            isLeaf: true,
+          };
+        });
+
+        treeNodes.push({
+          title: (
+            <Space size="small">
+              <Table size={16} className="text-blue-600" />
+              <Text strong>{collectionName}</Text>
+              <Tag color="default" className="text-xs">
+                {collectionData.totalDocuments.toLocaleString()} docs
+              </Tag>
+              <Tag color="geekblue" className="text-xs">
+                {fields.length} fields
+              </Tag>
+            </Space>
+          ),
+          key: collectionKey,
+          children: fieldNodes,
+        });
       });
-      setSampleDoc(result.sampleDocument || null);
 
-      // Auto-select text fields (string type with high presence)
-      const autoSelectedFields = fields
-        .filter(f => f.type === 'string' && f.presence > 80 && !f.name.startsWith('_'))
-        .map(f => f.name);
-      setSelectedFields(autoSelectedFields);
+      setCollectionsSchemas(schemasMap);
+      setTreeData(treeNodes);
+      setExpandedKeys([]); // Start collapsed
+      setCheckedKeys([]); // Start with nothing selected
+
+      message.success(`Loaded schemas for ${Object.keys(schemasMap).length} collections`);
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : 'Unknown error';
-      message.error(`Failed to load schema: ${errMsg}`);
-      setSchema([]);
-      setSampleDoc(null);
-      setSchemaStats(null);
+      message.error(`Failed to load schemas: ${errMsg}`);
+      setCollectionsSchemas({});
+      setTreeData([]);
     } finally {
-      setIsLoadingSchema(false);
+      setIsLoadingSchemas(false);
     }
   }, [connectionString, message]);
 
@@ -188,40 +261,40 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     if (selectedDb) {
       fetchCollections(selectedDb);
       setCollections([]);
-      setSchema([]);
-      setSampleDoc(null);
+      setCollectionsSchemas({});
+      setTreeData([]);
+      setCheckedKeys([]);
     }
   }, [selectedDb, fetchCollections]);
 
   useEffect(() => {
-    if (selectedDb && selectedCollection) {
-      fetchSchema(selectedDb, selectedCollection);
-    } else {
-      setSchema([]);
-      setSampleDoc(null);
+    if (selectedDb && collections.length > 0) {
+      fetchAllSchemas(selectedDb, collections);
     }
-  }, [selectedDb, selectedCollection, fetchSchema]);
+  }, [selectedDb, collections, fetchAllSchemas]);
 
-  // Helper to detect text fields based on type and presence
-  const textFields = schema.filter(f =>
-    f.type === 'string' &&
-    !f.name.startsWith('_') &&
-    f.presence > 50
-  );
-
-  // Sync selected fields with form when they change
+  // Sync checked keys with form
   useEffect(() => {
-    if (selectedFields.length > 0) {
-      form.setFieldValue('text_fields', selectedFields);
-    }
-  }, [selectedFields, form]);
+    if (checkedKeys.length > 0) {
+      // Extract selected collections and fields
+      const selectedData: Record<string, string[]> = {};
 
-  // Helper to detect metadata fields
-  const metadataFields = schema.filter(f =>
-    !textFields.includes(f) &&
-    !f.name.startsWith('_') &&
-    !f.isNested
-  );
+      checkedKeys.forEach((key) => {
+        const keyStr = key.toString();
+        if (keyStr.includes(':')) {
+          const [collection, field] = keyStr.split(':');
+          if (!selectedData[collection]) {
+            selectedData[collection] = [];
+          }
+          if (field) {
+            selectedData[collection].push(field);
+          }
+        }
+      });
+
+      form.setFieldValue('selected_collections', selectedData);
+    }
+  }, [checkedKeys, form]);
 
   return (
     <div className="space-y-4">
@@ -287,260 +360,106 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
         </Space>
       </Card>
 
-      {/* Database & Collection Selection */}
+      {/* Database Selection & Schema Tree */}
       {isConnected && (
         <Card size="small" className="border-blue-200">
           <Space orientation="vertical" className="w-full" size="middle">
             <Space className="w-full">
               <Layers size={18} className="text-blue-600" />
-              <Text strong>Select Data Source</Text>
+              <Text strong>Select Collections & Fields for Indexing</Text>
             </Space>
 
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="database"
-                  label="Database"
-                  rules={[{ required: true, message: 'Select a database' }]}
-                >
-                  <Select
-                    placeholder="Choose database"
-                    loading={isLoadingDbs}
-                    options={databases.map(db => ({
-                      label: (
-                        <Space>
-                          <Database size={14} />
-                          <span>{db}</span>
-                        </Space>
-                      ),
-                      value: db,
-                    }))}
-                    showSearch
-                    size="large"
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="collection"
-                  label="Collection"
-                  rules={[{ required: true, message: 'Select a collection' }]}
-                >
-                  <Select
-                    placeholder="Choose collection"
-                    loading={isLoadingCols}
-                    options={collections.map(col => ({
-                      label: (
-                        <Space>
-                          <Table size={14} />
-                          <span>{col}</span>
-                        </Space>
-                      ),
-                      value: col,
-                    }))}
-                    showSearch
-                    disabled={!selectedDb}
-                    size="large"
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-          </Space>
-        </Card>
-      )}
-
-      {/* Schema Preview & Field Selection */}
-      {selectedDb && selectedCollection && schema.length > 0 && (
-        <Card size="small" className="border-green-200">
-          <Space orientation="vertical" className="w-full" size="middle">
-            <Space className="w-full justify-between">
-              <Space>
-                <FileText size={18} className="text-green-600" />
-                <Text strong>Field Mapping for RAG</Text>
-              </Space>
-              {isLoadingSchema && <Spin size="small" />}
-            </Space>
-
-            <Collapse
-              items={[
-                {
-                  key: 'schema',
+            <Form.Item
+              name="database"
+              label="Database"
+              rules={[{ required: true, message: 'Select a database' }]}
+            >
+              <Select
+                placeholder="Choose database"
+                loading={isLoadingDbs}
+                options={databases.map(db => ({
                   label: (
                     <Space>
-                      <Eye size={14} />
-                      <span>
-                        View Schema Analysis ({schema.length} fields from {schemaStats?.sampled} sampled documents)
-                      </span>
+                      <Database size={14} />
+                      <span>{db}</span>
                     </Space>
                   ),
-                  children: (
-                    <div className="space-y-4">
-                      <Alert
-                        title="Schema Analysis"
-                        description={`Analyzed ${schemaStats?.sampled} of ${schemaStats?.total} total documents to understand the collection structure.`}
-                        type="info"
-                        showIcon
-                        className="mb-4"
-                      />
+                  value: db,
+                }))}
+                showSearch
+                size="large"
+              />
+            </Form.Item>
 
-                      <div>
-                        <div className="flex justify-between items-center mb-3">
-                          <Text strong>Available Fields - Select for Indexing:</Text>
-                          <Space>
-                            <Button
-                              size="small"
-                              onClick={() => setSelectedFields(schema.filter(f => !f.name.startsWith('_')).map(f => f.name))}
-                            >
-                              Select All
-                            </Button>
-                            <Button size="small" onClick={() => setSelectedFields([])}>
-                              Clear All
-                            </Button>
-                          </Space>
-                        </div>
+            {isLoadingCols && (
+              <div className="text-center py-4">
+                <Spin tip="Loading collections...">
+                  <div className="h-20" />
+                </Spin>
+              </div>
+            )}
 
-                        <div className="max-h-96 overflow-y-auto border rounded p-3 bg-gray-50">
-                          <Checkbox.Group
-                            value={selectedFields}
-                            onChange={(checkedValues) => setSelectedFields(checkedValues as string[])}
-                            className="w-full"
-                          >
-                            <Space orientation="vertical" className="w-full" size="small">
-                              {schema.map(field => (
-                                <div
-                                  key={field.name}
-                                  className="flex items-center justify-between p-2 hover:bg-white rounded transition-colors"
-                                >
-                                  <Checkbox value={field.name} disabled={field.name === '_id'}>
-                                    <Space size="small">
-                                      <Text strong>{field.name}</Text>
-                                      {field.isNested && (
-                                        <Tag color="purple" className="text-xs">nested</Tag>
-                                      )}
-                                      {field.isArray && (
-                                        <Tag color="cyan" className="text-xs">
-                                          array{field.arrayElementType ? ` of ${field.arrayElementType}` : ''}
-                                        </Tag>
-                                      )}
-                                    </Space>
-                                  </Checkbox>
-                                  <Space size="small">
-                                    <Tag color={field.type === 'string' ? 'blue' : field.type === 'int' || field.type === 'double' ? 'green' : 'default'}>
-                                      {field.type}
-                                      {field.types.length > 1 && (
-                                        <Tooltip title={`Multiple types: ${field.types.join(', ')}`}>
-                                          <Text className="ml-1 text-xs">+{field.types.length - 1}</Text>
-                                        </Tooltip>
-                                      )}
-                                    </Tag>
-                                    <Tooltip title={`Present in ${field.count} of ${schemaStats?.sampled} sampled documents`}>
-                                      <Tag color={field.presence >= 90 ? 'success' : field.presence >= 50 ? 'warning' : 'default'}>
-                                        {field.presence.toFixed(1)}%
-                                      </Tag>
-                                    </Tooltip>
-                                  </Space>
-                                </div>
-                              ))}
-                            </Space>
-                          </Checkbox.Group>
-                        </div>
-                      </div>
+            {isLoadingSchemas && (
+              <div className="text-center py-4">
+                <Spin tip="Analyzing schemas from all collections...">
+                  <div className="h-20" />
+                </Spin>
+              </div>
+            )}
 
-                      {sampleDoc && (
-                        <div>
-                          <Text type="secondary" className="block mb-2">Sample Document Preview:</Text>
-                          <pre className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-64 border">
-                            {JSON.stringify(sampleDoc, null, 2)}
-                          </pre>
-                        </div>
-                      )}
+            {!isLoadingSchemas && treeData.length > 0 && (
+              <div>
+                <Alert
+                  title="Select what to index"
+                  description={
+                    <div>
+                      <Paragraph className="mb-2">
+                        Check collections (entire collection) or specific fields to include in RAG indexing.
+                        Text fields with high presence are auto-selected.
+                      </Paragraph>
+                      <Space size="small">
+                        <Tag color="blue">string</Tag> = Text field
+                        <Tag color="success">90%+</Tag> = High presence
+                        <Tag color="cyan">array</Tag> = Array type
+                        <Tag color="purple">nested</Tag> = Nested object
+                      </Space>
                     </div>
-                  ),
-                },
-              ]}
-            />
-
-            <Alert
-              title="Field Selection Tips"
-              description="Text fields contain the main content for indexing. Metadata fields provide context and filtering options."
-              type="info"
-              showIcon
-              icon={<Info size={14} />}
-            />
-
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="text_fields"
-                  label={
-                    <Space>
-                      <span>Text Fields (Content)</span>
-                      <InfoTooltip
-                        title="Content Fields"
-                        content="Fields containing the main text to be indexed. Multiple fields will be concatenated. Choose fields like 'content', 'body', 'text', or 'description'."
-                      />
-                    </Space>
                   }
-                  rules={[{ required: true, message: 'Select at least one text field' }]}
-                  initialValue={textFields.length > 0 ? [textFields[0].name] : []}
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select text fields"
-                    options={schema
-                      .filter(f => !f.name.startsWith('_'))
-                      .map(f => ({
-                        label: (
-                          <Space>
-                            <FileText size={12} />
-                            <span>{f.name}</span>
-                            <Tag color="blue" className="text-xs">{f.type}</Tag>
-                            {textFields.includes(f) && <Tag color="green" className="text-xs">Recommended</Tag>}
-                          </Space>
-                        ),
-                        value: f.name,
-                      }))}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="metadata_fields"
-                  label={
-                    <Space>
-                      <span>Metadata Fields (Context)</span>
-                      <InfoTooltip
-                        title="Metadata Fields"
-                        content="Additional fields to include as metadata for filtering and context. Examples: author, date, category, tags."
-                      />
-                    </Space>
-                  }
-                  initialValue={[]}
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select metadata fields"
-                    options={schema
-                      .filter(f => !f.name.startsWith('_') && !f.isNested)
-                      .map(f => ({
-                        label: (
-                          <Space>
-                            <span>{f.name}</span>
-                            <Tag color="purple" className="text-xs">{f.type}</Tag>
-                          </Space>
-                        ),
-                        value: f.name,
-                      }))}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
+                  type="info"
+                  showIcon
+                  className="mb-4"
+                />
+
+                <Tree
+                  checkable
+                  selectable={false}
+                  expandedKeys={expandedKeys}
+                  checkedKeys={checkedKeys}
+                  onCheck={(checked) => {
+                    setCheckedKeys(checked as React.Key[]);
+                  }}
+                  onExpand={(expanded) => {
+                    setExpandedKeys(expanded);
+                  }}
+                  treeData={treeData}
+                  className="bg-gray-50 p-4 rounded border"
+                />
+
+                <div className="mt-4">
+                  <Space size="small">
+                    <Text type="secondary">
+                      {checkedKeys.length} field(s) selected across {Object.keys(collectionsSchemas).length} collection(s)
+                    </Text>
+                  </Space>
+                </div>
+              </div>
+            )}
           </Space>
         </Card>
       )}
 
       {/* Query Builder */}
-      {selectedDb && selectedCollection && (
+      {selectedDb && treeData.length > 0 && (
         <Card size="small" className="border-orange-200">
           <Space orientation="vertical" className="w-full" size="middle">
             <Space className="w-full">
@@ -572,7 +491,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
             {queryMode === 'filter' && (
               <div className="space-y-4">
                 <Alert
-                  message="MongoDB Query Filter"
+                  title="MongoDB Query Filter"
                   description="Write a MongoDB query to filter documents. Example: status equals published and views greater than 100"
                   type="warning"
                   showIcon
@@ -623,7 +542,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
       )}
 
       {/* Advanced Settings */}
-      {selectedDb && selectedCollection && (
+      {selectedDb && treeData.length > 0 && (
         <Collapse
           items={[
             {

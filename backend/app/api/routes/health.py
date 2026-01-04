@@ -7,6 +7,16 @@ from fastapi import APIRouter
 router = APIRouter()
 
 
+@router.get("/")
+async def root():
+    """Root endpoint."""
+    return {
+        "message": "Marie RAG Indexing API",
+        "version": "0.1.0",
+        "status": "running",
+    }
+
+
 @router.get("/health")
 async def health_check():
     """Health check endpoint for monitoring service status."""

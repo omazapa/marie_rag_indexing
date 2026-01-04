@@ -26,6 +26,18 @@ export interface MongoSchemaResponse {
   message?: string;
 }
 
+export interface CollectionSchemaResult {
+  schema: Record<string, SchemaFieldInfo>;
+  totalDocuments: number;
+  sampledDocuments: number;
+  error?: string;
+  message?: string;
+}
+
+export interface MongoBatchSchemasResponse {
+  collections: Record<string, CollectionSchemaResult>;
+}
+
 export const mongodbService = {
   getDatabases: async (connectionString: string): Promise<MongoDatabasesResponse> => {
     const response = await api.post<MongoDatabasesResponse>('/plugins/mongodb/databases', {
@@ -45,6 +57,15 @@ export const mongodbService = {
   getSchema: async (connectionString: string, database: string, collection: string): Promise<MongoSchemaResponse> => {
     const response = await api.get<MongoSchemaResponse>('/mongodb/schema', {
       params: { connection_string: connectionString, database, collection }
+    });
+    return response.data;
+  },
+
+  getSchemasBatch: async (connectionString: string, database: string, collections: string[]): Promise<MongoBatchSchemasResponse> => {
+    const response = await api.post<MongoBatchSchemasResponse>('/mongodb/schemas-batch', {
+      connection_string: connectionString,
+      database,
+      collections
     });
     return response.data;
   }

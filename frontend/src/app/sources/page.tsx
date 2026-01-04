@@ -29,12 +29,10 @@ import {
   Bot,
   Database as DbIcon,
   Globe,
-  Folder,
   Info,
   CheckCircle2,
   AlertCircle,
   Upload,
-  Server,
   Cloud,
   FileText,
 } from 'lucide-react';
@@ -55,7 +53,7 @@ import { StatusIndicator } from '@/components/StatusIndicator';
 import { InfoTooltip } from '@/components/InfoTooltip';
 import { Prompts } from '@ant-design/x';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function SourcesPage() {
   const { message, modal } = App.useApp();
@@ -891,20 +889,24 @@ export default function SourcesPage() {
 
           <Flex gap="middle">
             <Form.Item name="chunk_size" label="Chunk Size" initialValue={1000} className="flex-1 mb-0">
-              <InputNumber
-                min={100}
-                max={4000}
-                addonAfter={chunkStrategy === 'token' ? 'tokens' : 'chars'}
-                style={{ width: '100%' }}
-              />
+              <Space.Compact style={{ width: '100%' }}>
+                <InputNumber
+                  min={100}
+                  max={4000}
+                  style={{ width: '100%' }}
+                />
+                <Input disabled value={chunkStrategy === 'token' ? 'tokens' : 'chars'} style={{ width: '70px' }} />
+              </Space.Compact>
             </Form.Item>
             <Form.Item name="chunk_overlap" label="Overlap" initialValue={200} className="flex-1 mb-0">
-              <InputNumber
-                min={0}
-                max={500}
-                addonAfter={chunkStrategy === 'token' ? 'tokens' : 'chars'}
-                style={{ width: '100%' }}
-              />
+              <Space.Compact style={{ width: '100%' }}>
+                <InputNumber
+                  min={0}
+                  max={500}
+                  style={{ width: '100%' }}
+                />
+                <Input disabled value={chunkStrategy === 'token' ? 'tokens' : 'chars'} style={{ width: '70px' }} />
+              </Space.Compact>
             </Form.Item>
           </Flex>
 
