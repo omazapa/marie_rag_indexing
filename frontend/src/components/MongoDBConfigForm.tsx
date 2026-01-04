@@ -227,7 +227,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     <div className="space-y-4">
       {/* Connection Section */}
       <Card size="small" className="border-purple-200">
-        <Space direction="vertical" className="w-full" size="middle">
+        <Space orientation="vertical" className="w-full" size="middle">
           <Space className="w-full">
             <Database size={18} className="text-purple-600" />
             <Text strong>MongoDB Connection</Text>
@@ -290,7 +290,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
       {/* Database & Collection Selection */}
       {isConnected && (
         <Card size="small" className="border-blue-200">
-          <Space direction="vertical" className="w-full" size="middle">
+          <Space orientation="vertical" className="w-full" size="middle">
             <Space className="w-full">
               <Layers size={18} className="text-blue-600" />
               <Text strong>Select Data Source</Text>
@@ -352,7 +352,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
       {/* Schema Preview & Field Selection */}
       {selectedDb && selectedCollection && schema.length > 0 && (
         <Card size="small" className="border-green-200">
-          <Space direction="vertical" className="w-full" size="middle">
+          <Space orientation="vertical" className="w-full" size="middle">
             <Space className="w-full justify-between">
               <Space>
                 <FileText size={18} className="text-green-600" />
@@ -405,7 +405,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
                             onChange={(checkedValues) => setSelectedFields(checkedValues as string[])}
                             className="w-full"
                           >
-                            <Space direction="vertical" className="w-full" size="small">
+                            <Space orientation="vertical" className="w-full" size="small">
                               {schema.map(field => (
                                 <div
                                   key={field.name}
@@ -542,7 +542,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
       {/* Query Builder */}
       {selectedDb && selectedCollection && (
         <Card size="small" className="border-orange-200">
-          <Space direction="vertical" className="w-full" size="middle">
+          <Space orientation="vertical" className="w-full" size="middle">
             <Space className="w-full">
               <Filter size={18} className="text-orange-600" />
               <Text strong>Filter Documents (Optional)</Text>
@@ -630,7 +630,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
               key: 'advanced',
               label: 'Advanced Settings',
               children: (
-                <Space direction="vertical" className="w-full">
+                <Space orientation="vertical" className="w-full">
                   <Form.Item
                     name="batch_size"
                     label={

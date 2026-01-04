@@ -132,8 +132,10 @@ async def get_mongodb_schema(
         # Build schema result
         schema_result = build_schema_result(field_analysis, sample_size)
 
-        # Get one sample document for preview
+        # Get one sample document for preview and convert ObjectId to string
         sample_doc = coll.find_one()
+        if sample_doc and "_id" in sample_doc:
+            sample_doc["_id"] = str(sample_doc["_id"])
 
         return {
             "schema": schema_result,

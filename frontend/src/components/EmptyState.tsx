@@ -28,7 +28,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           Empty.PRESENTED_IMAGE_SIMPLE
         )
       }
-      imageStyle={{ height: Icon ? 'auto' : 60 }}
+      styles={{ image: { height: Icon ? 'auto' : 60 } }}
       description={
         <div className="space-y-2">
           <div className="text-lg font-semibold text-gray-700">{title}</div>

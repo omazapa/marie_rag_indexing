@@ -26,17 +26,13 @@ You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generatio
 - Use descriptive variable and function names.
 
 ### Commit Workflow
-- **NEVER ask the user to commit after each action**
-- **DO NOT prompt or suggest commits to the user**
-- **ALWAYS verify code quality BEFORE attempting a commit**:
-  - Run type checks (frontend)
-  - Check for parsing errors
-  - Verify no trailing whitespace or formatting issues
-  - Test imports and module resolution
-  - Ensure all required properties are present
-- **Only commit when all validations pass**
-- Group related changes into single, meaningful commits
-- Use descriptive commit messages following conventional commits format
+- **ABSOLUTELY NEVER ask the user to commit**
+- **ABSOLUTELY NEVER suggest commits to the user**
+- **ABSOLUTELY NEVER prompt for commits**
+- **DO NOT make automatic commits unless explicitly asked**
+- **DO NOT ask if the user wants to commit changes**
+- When code changes are made, simply continue working without mentioning commits
+- The user will handle all git operations manually
 
 ### Backend (Python/Flask)
 - Use Pydantic for data validation and schema definitions.

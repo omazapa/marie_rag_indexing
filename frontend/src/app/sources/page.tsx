@@ -869,19 +869,19 @@ export default function SourcesPage() {
           <Form.Item name="strategy" label="Strategy" initialValue="recursive" className="mb-3">
             <Select>
               <Select.Option value="recursive">
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text strong>Recursive Character</Text>
                   <Text type="secondary" className="text-xs">Recommended - Smart text splitting</Text>
                 </Space>
               </Select.Option>
               <Select.Option value="character">
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text strong>Simple Character</Text>
                   <Text type="secondary" className="text-xs">Basic fixed-size chunks</Text>
                 </Space>
               </Select.Option>
               <Select.Option value="token">
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text strong>Token-based</Text>
                   <Text type="secondary" className="text-xs">Optimized for LLM context</Text>
                 </Space>
@@ -940,13 +940,13 @@ export default function SourcesPage() {
               <Form.Item name="execution_mode" label="Mode" initialValue="sequential" className="flex-1 mb-0">
                 <Select>
                   <Select.Option value="sequential">
-                    <Space direction="vertical" size={0}>
+                    <Space orientation="vertical" size={0}>
                       <Text strong>Sequential</Text>
                       <Text type="secondary" className="text-xs">Process one by one</Text>
                     </Space>
                   </Select.Option>
                   <Select.Option value="parallel">
-                    <Space direction="vertical" size={0}>
+                    <Space orientation="vertical" size={0}>
                       <Text strong>Parallel</Text>
                       <Text type="secondary" className="text-xs">Multiple workers</Text>
                     </Space>
