@@ -27,14 +27,14 @@ class MongoDBAdapter(DataSourcePort):
         self.collection_name = config.get("collection")
         self.query_mode = config.get("query_mode", False)
         self.query = config.get("query", {})
-        
+
         # Support multiple content fields for vectorization
         self.content_fields = config.get("content_fields", [])
         if not self.content_fields:
             # Fallback to single content_field for backward compatibility
             single_field = config.get("content_field", "text")
             self.content_fields = [single_field] if single_field else []
-        
+
         self.metadata_fields = config.get("metadata_fields", [])
 
         if not self.connection_string:
@@ -88,10 +88,10 @@ class MongoDBAdapter(DataSourcePort):
                     field_value = get_nested_value(item, field_path)
                     if field_value:
                         content_parts.append(f"{field_path}: {field_value}")
-                
+
                 if not content_parts:
                     continue
-                
+
                 # Concatenate all content fields
                 content = "\n\n".join(content_parts)
 

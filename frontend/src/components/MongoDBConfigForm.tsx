@@ -314,7 +314,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
         }
         if (field) {
           selectedData[collection].push(field);
-          
+
           // Categorize as content or metadata
           if (contentFields.has(keyStr)) {
             contentFieldsList.push(field);
@@ -532,7 +532,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
                         <div>📋 <strong>Metadata</strong> = Field stored as-is for filtering and display (not searchable)</div>
                       </Space>
                       <Paragraph className="mt-3 text-xs text-gray-500">
-                        💡 <strong>Tip:</strong> Mark text-rich fields (abstracts, descriptions, content) as "Vectorize". 
+                        💡 <strong>Tip:</strong> Mark text-rich fields (abstracts, descriptions, content) as "Vectorize".
                         Use "Metadata" for IDs, dates, categories, authors.
                       </Paragraph>
                     </div>
@@ -569,7 +569,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
                               const keyStr = key.toString();
                               const fieldName = keyStr.split(':')[1];
                               const isVectorize = contentFields.has(keyStr);
-                              
+
                               return (
                                 <div key={keyStr} className="flex items-center justify-between p-2 bg-white rounded border">
                                   <Text strong>{fieldName}</Text>
@@ -726,12 +726,23 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
             <Form.Item
               name="collection"
               label="Collection"
-              rules={[{ required: true, message: 'Please specify a collection' }]}
+              rules={[{ required: true, message: 'Please select a collection' }]}
             >
-              <Input
-                placeholder="e.g. works, articles, users"
-                prefix={<Table size={14} />}
+              <Select
+                placeholder="Select a collection"
+                options={collections.map((col) => ({
+                  label: (
+                    <Space>
+                      <Table size={14} />
+                      <span>{col}</span>
+                    </Space>
+                  ),
+                  value: col,
+                }))}
+                showSearch
                 size="large"
+                loading={isLoadingCols}
+                disabled={!selectedDb || isLoadingCols}
               />
             </Form.Item>
 
@@ -768,21 +779,42 @@ Or aggregation pipeline:
               />
             </Form.Item>
 
+            <Alert
+              title="Specify which fields to vectorize"
+              description="Enter comma-separated field names. Fields to vectorize will be converted to embeddings for semantic search. All other fields become metadata."
+              type="warning"
+              showIcon
+            />
+
             <Form.Item
-              name="content_field"
+              name="custom_content_fields"
               label={
                 <Space>
-                  <span>Main Content Field</span>
+                  <span>Fields to Vectorize</span>
                   <InfoTooltip
-                    title="Content Field"
-                    content="The field containing the main text to index (e.g., 'text', 'body', 'content')."
+                    title="Content Fields"
+                    content="Comma-separated field names to vectorize (e.g., 'abstract,title,description'). These will be combined and converted to embeddings."
                   />
                 </Space>
               }
               rules={[{ required: true }]}
-              initialValue="text"
             >
-              <Input placeholder="e.g. text, body, content" />
+              <Input placeholder="e.g. abstract, title, content" />
+            </Form.Item>
+
+            <Form.Item
+              name="custom_metadata_fields"
+              label={
+                <Space>
+                  <span>Metadata Fields (Optional)</span>
+                  <InfoTooltip
+                    title="Metadata Fields"
+                    content="Comma-separated field names to store as metadata only (e.g., 'author,year,doi'). Used for filtering, not search."
+                  />
+                </Space>
+              }
+            >
+              <Input placeholder="e.g. author, year, doi, category" />
             </Form.Item>
 
             <Form.Item

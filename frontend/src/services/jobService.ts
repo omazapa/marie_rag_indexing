@@ -20,7 +20,7 @@ export interface JobsResponse {
 export const jobService = {
   getJobs: async (): Promise<IngestionJob[]> => {
     const response = await apiClientWithRetry.get<JobsResponse>('/jobs');
-    return response.data.jobs;
+    return response.jobs;
   },
 
   getJob: async (jobId: string): Promise<IngestionJob> => {
