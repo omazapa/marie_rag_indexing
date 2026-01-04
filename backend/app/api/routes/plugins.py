@@ -148,9 +148,12 @@ async def get_mongodb_schema(
         # Sample documents to analyze types
         sample_docs = list(coll.aggregate([{"$sample": {"size": sample_size}}]))
 
-        # Analyze all fields including nested ones
-        for key in all_keys:
-            analyze_field_recursive(key, sample_docs, field_analysis, prefix="")
+        # First pass: collect ALL unique field paths across all documents
+        all_field_paths = collect_all_field_paths(sample_docs)
+
+        # Second pass: analyze each field path
+        for field_path in sorted(all_field_paths):
+            field_analysis[field_path] = analyze_field_path(field_path, sample_docs)
 
         # Convert all ObjectIds to strings in the entire response
         field_analysis = convert_objectid_to_str(field_analysis)
@@ -235,9 +238,12 @@ async def get_mongodb_schemas_batch(request: dict[str, Any]):
                 # Sample documents to analyze types
                 sample_docs = list(coll.aggregate([{"$sample": {"size": sample_size}}]))
 
-                # Analyze all fields including nested ones
-                for key in all_keys:
-                    analyze_field_recursive(key, sample_docs, field_analysis, prefix="")
+                # First pass: collect ALL unique field paths across all documents
+                all_field_paths = collect_all_field_paths(sample_docs)
+
+                # Second pass: analyze each field path
+                for field_path in sorted(all_field_paths):
+                    field_analysis[field_path] = analyze_field_path(field_path, sample_docs)
 
                 # Convert all ObjectIds to strings in the entire response
                 field_analysis = convert_objectid_to_str(field_analysis)
@@ -295,12 +301,144 @@ def get_value_type(value: Any) -> str:
         return type(value).__name__
 
 
+def collect_all_field_paths(
+    documents: list[dict[str, Any]], prefix: str = "", max_depth: int = 10
+) -> set[str]:
+    """
+    Recursively collect all unique field paths from all documents.
+    This is similar to how MongoDB's analyze-schema snippet works.
+    """
+    if not documents or prefix.count(".") >= max_depth:
+        return set()
+
+    all_paths: set[str] = set()
+
+    for doc in documents:
+        if not isinstance(doc, dict):
+            continue
+
+        for key, value in doc.items():
+            current_path = f"{prefix}{key}" if prefix else key
+            all_paths.add(current_path)
+
+            # Recursively process nested objects
+            if isinstance(value, dict):
+                nested_paths = collect_all_field_paths([value], f"{current_path}.", max_depth)
+                all_paths.update(nested_paths)
+            # Process arrays of objects
+            elif isinstance(value, list):
+                # Collect all objects from the array
+                objects_in_array = [item for item in value if isinstance(item, dict)]
+                if objects_in_array:
+                    nested_paths = collect_all_field_paths(
+                        objects_in_array, f"{current_path}.", max_depth
+                    )
+                    all_paths.update(nested_paths)
+
+    return all_paths
+
+
+def analyze_field_path(field_path: str, documents: list[dict[str, Any]]) -> dict[str, Any]:
+    """
+    Analyze a specific field path across all documents.
+    Similar to MongoDB's field analysis in analyze-schema snippet.
+    """
+    types: dict[str, int] = {}
+    count = 0
+    sample_values = []
+    has_nested = False
+    has_array = False
+    array_element_type = None
+
+    path_parts = field_path.split(".")
+
+    for doc in documents:
+        # Navigate to the field value
+        value = doc
+        try:
+            for part in path_parts:
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                elif isinstance(value, list):
+                    # Handle arrays in the path - check all elements
+                    temp_values = []
+                    for item in value:
+                        if isinstance(item, dict) and part in item:
+                            temp_values.append(item[part])
+                    if temp_values:
+                        value = temp_values if len(temp_values) > 1 else temp_values[0]
+                    else:
+                        value = None
+                        break
+                else:
+                    value = None
+                    break
+
+            if value is not None:
+                count += 1
+                value_type = get_value_type(value)
+                types[value_type] = types.get(value_type, 0) + 1
+
+                # Analyze structure
+                if isinstance(value, dict):
+                    has_nested = True
+                elif isinstance(value, list):
+                    has_array = True
+                    # Determine array element type
+                    for elem in value:
+                        if elem is not None:
+                            elem_type = get_value_type(elem)
+                            if array_element_type is None:
+                                array_element_type = elem_type
+                            elif array_element_type != elem_type and elem_type != "null":
+                                array_element_type = "mixed"
+                            if isinstance(elem, dict):
+                                has_nested = True
+                                break
+
+                # Collect sample values
+                if len(sample_values) < 3:
+                    if isinstance(value, ObjectId):
+                        sample_values.append(str(value))
+                    elif isinstance(value, dict):
+                        sample_values.append(f"object({len(value)} keys)")
+                    elif isinstance(value, list):
+                        sample_values.append(f"array({len(value)} items)")
+                    else:
+                        sample_values.append(value)
+
+        except (KeyError, TypeError, AttributeError, IndexError):
+            continue
+
+    if count == 0:
+        return {}
+
+    total_docs = len(documents)
+    primary_type = max(types.items(), key=lambda x: x[1])[0] if types else "unknown"
+
+    result = {
+        "path": field_path,
+        "type": primary_type,
+        "types": list(types.keys()),
+        "count": count,
+        "percentage": round((count / total_docs) * 100, 2) if total_docs > 0 else 0,
+        "sample_values": sample_values,
+        "isNested": has_nested,
+        "isArray": has_array,
+    }
+
+    if array_element_type:
+        result["arrayElementType"] = array_element_type
+
+    return result
+
+
 def analyze_field_recursive(
     field_name: str,
     documents: list[dict[str, Any]],
     field_analysis: dict[str, Any],
     prefix: str = "",
-    max_depth: int = 5,
+    max_depth: int = 10,
     current_depth: int = 0,
 ) -> None:
     """
@@ -338,30 +476,37 @@ def analyze_field_recursive(
                 value_type = get_value_type(value)
                 types[value_type] = types.get(value_type, 0) + 1
 
-                # Check for nested structures
+                # Check for nested structures and collect ALL keys from ALL documents
                 if isinstance(value, dict):
                     has_nested = True
-                    # Collect all keys from nested objects
+                    # Collect all keys from this specific nested object
                     nested_keys.update(value.keys())
                 elif isinstance(value, list):
                     has_array = True
-                    if value:
-                        first_elem = value[0]
-                        array_element_type = get_value_type(first_elem)
-                        # If array contains objects, analyze them
-                        if isinstance(first_elem, dict):
+                    # Analyze all elements in the array, not just the first one
+                    for elem in value:
+                        if isinstance(elem, dict):
                             has_nested = True
-                            nested_keys.update(first_elem.keys())
+                            # Collect keys from all objects in the array
+                            nested_keys.update(elem.keys())
+                        elif elem is not None:
+                            elem_type = get_value_type(elem)
+                            if array_element_type is None:
+                                array_element_type = elem_type
+                            elif array_element_type != elem_type:
+                                array_element_type = "mixed"
 
                 # Collect sample values (max 3)
                 if len(sample_values) < 3:
                     if isinstance(value, ObjectId):
                         sample_values.append(str(value))
-                    elif isinstance(value, (dict, list)):
-                        sample_values.append(str(type(value).__name__))
+                    elif isinstance(value, dict):
+                        sample_values.append(f"object({len(value)} keys)")
+                    elif isinstance(value, list):
+                        sample_values.append(f"array({len(value)} items)")
                     else:
                         sample_values.append(value)
-        except (KeyError, TypeError):
+        except (KeyError, TypeError, AttributeError):
             continue
 
     if count == 0:
@@ -389,7 +534,7 @@ def analyze_field_recursive(
     # Recursively analyze nested fields
     if has_nested and nested_keys and current_depth < max_depth - 1:
         new_prefix = f"{full_path}."
-        for nested_key in nested_keys:
+        for nested_key in sorted(nested_keys):  # Sort for consistent ordering
             analyze_field_recursive(
                 nested_key,
                 documents,
