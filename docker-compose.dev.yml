@@ -20,12 +20,16 @@ services:
       - WATCHFILES_FORCE_POLLING=false
 
   frontend:
+    command: npm run dev
     volumes:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
     environment:
       - FAST_REFRESH=true
+      - WATCHPACK_POLLING=false
+      - CHOKIDAR_USEPOLLING=false
+      - NEXT_TELEMETRY_DISABLED=1
 
 volumes:
   backend-venv:
