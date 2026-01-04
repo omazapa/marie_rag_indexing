@@ -155,8 +155,6 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
 
       const schemasMap: Record<string, CollectionSchema> = {};
       const treeNodes: TreeDataNode[] = [];
-      const autoExpandKeys: React.Key[] = [];
-      const autoCheckedKeys: React.Key[] = [];
 
       Object.entries(result.collections).forEach(([collectionName, collectionData]) => {
         if (collectionData.error) {
@@ -166,7 +164,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
 
         // Convert schema to field array
         const fields: SchemaField[] = Object.entries(collectionData.schema).map(([fieldPath, info]) => {
-          const fieldInfo = info as Record<string, unknown>;
+          const fieldInfo = info as unknown as Record<string, unknown>;
           return {
             name: fieldPath,
             type: (fieldInfo.type as string) || ((fieldInfo.types as string[]) && (fieldInfo.types as string[]).length > 0 ? (fieldInfo.types as string[])[0] : 'unknown'),
