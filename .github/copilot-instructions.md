@@ -25,6 +25,13 @@ You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generatio
 - Prioritize modularity and scalability.
 - Use descriptive variable and function names.
 
+### Communication Style
+- **Keep responses short and direct**
+- **NO long explanations at the end of responses**
+- **DO NOT create documentation files unless explicitly requested**
+- Focus on solving the problem, not documenting what was done
+- After completing a task, stop - don't list what was changed
+
 ### Commit Workflow
 - **ABSOLUTELY NEVER make git commits automatically**
 - **ONLY commit when the user explicitly asks for it**

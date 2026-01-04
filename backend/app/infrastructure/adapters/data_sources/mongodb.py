@@ -27,7 +27,14 @@ class MongoDBAdapter(DataSourcePort):
         self.collection_name = config.get("collection")
         self.query_mode = config.get("query_mode", False)
         self.query = config.get("query", {})
-        self.content_field = config.get("content_field", "text")
+        
+        # Support multiple content fields for vectorization
+        self.content_fields = config.get("content_fields", [])
+        if not self.content_fields:
+            # Fallback to single content_field for backward compatibility
+            single_field = config.get("content_field", "text")
+            self.content_fields = [single_field] if single_field else []
+        
         self.metadata_fields = config.get("metadata_fields", [])
 
         if not self.connection_string:
@@ -75,9 +82,18 @@ class MongoDBAdapter(DataSourcePort):
                 return current
 
             for item in cursor:
-                content = get_nested_value(item, self.content_field)
-                if not content:
+                # Collect content from all content_fields
+                content_parts = []
+                for field_path in self.content_fields:
+                    field_value = get_nested_value(item, field_path)
+                    if field_value:
+                        content_parts.append(f"{field_path}: {field_value}")
+                
+                if not content_parts:
                     continue
+                
+                # Concatenate all content fields
+                content = "\n\n".join(content_parts)
 
                 metadata = {
                     "source": (
@@ -93,7 +109,7 @@ class MongoDBAdapter(DataSourcePort):
                         metadata[field] = val
 
                 yield Document(
-                    content=str(content), metadata=metadata, source_id=str(item.get("_id", ""))
+                    content=content, metadata=metadata, source_id=str(item.get("_id", ""))
                 )
         except Exception as e:
             print(f"Error fetching data from MongoDB: {e}")

@@ -50,6 +50,7 @@ interface SchemaField {
   isNested: boolean;
   isArray: boolean;
   arrayElementType?: string;
+  fieldRole?: 'content' | 'metadata'; // New: Role of the field
 }
 
 interface CollectionSchema {
@@ -66,6 +67,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
   const [treeData, setTreeData] = useState<TreeDataNode[]>([]);
   const [checkedKeys, setCheckedKeys] = useState<React.Key[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
+  const [contentFields, setContentFields] = useState<Set<string>>(new Set()); // Fields to vectorize
   const [isLoadingDbs, setIsLoadingDbs] = useState(false);
   const [isLoadingCols, setIsLoadingCols] = useState(false);
   const [isLoadingSchemas, setIsLoadingSchemas] = useState(false);
@@ -75,6 +77,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
   const connectionString = Form.useWatch('connection_string', form);
   const selectedDb = Form.useWatch('database', form);
   const queryMode = Form.useWatch('query_mode', form) || 'all';
+  const dataSourceMode = Form.useWatch('data_source_mode', form) || 'collections';
 
   const testConnection = async () => {
     if (!connectionString) {
@@ -222,8 +225,8 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
 
           return {
             title: (
-              <Space size="small" className="w-full">
-                <Text strong className="flex-1">{field.name}</Text>
+              <Space size="small" className="w-full items-center">
+                <Text strong>{field.name}</Text>
                 <Tag color={field.type === 'string' ? 'blue' : field.type === 'int' ? 'green' : 'default'} className="text-xs">
                   {field.type}
                 </Tag>
@@ -241,6 +244,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
             ),
             key: fieldKey,
             isLeaf: true,
+            checkable: true,
           };
         });
 
@@ -294,10 +298,12 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     }
   }, [selectedDb, collections, fetchAllSchemas]);
 
-  // Sync checked keys with form
+  // Sync checked keys and content fields with form
   useEffect(() => {
     // Extract selected collections and fields from checked keys
     const selectedData: Record<string, string[]> = {};
+    const contentFieldsList: string[] = [];
+    const metadataFieldsList: string[] = [];
 
     checkedKeys.forEach((key) => {
       const keyStr = key.toString();
@@ -308,12 +314,21 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
         }
         if (field) {
           selectedData[collection].push(field);
+          
+          // Categorize as content or metadata
+          if (contentFields.has(keyStr)) {
+            contentFieldsList.push(field);
+          } else {
+            metadataFieldsList.push(field);
+          }
         }
       }
     });
 
     form.setFieldValue('selected_collections', selectedData);
-  }, [checkedKeys, form]);
+    form.setFieldValue('content_fields', contentFieldsList);
+    form.setFieldValue('metadata_fields', metadataFieldsList);
+  }, [checkedKeys, contentFields, form]);
 
   // Load existing selected collections when editing
   useEffect(() => {
@@ -339,6 +354,12 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     <div className="space-y-4">
       {/* Hidden fields for MongoDB config */}
       <Form.Item name="selected_collections" hidden>
+        <Input />
+      </Form.Item>
+      <Form.Item name="content_fields" hidden>
+        <Input />
+      </Form.Item>
+      <Form.Item name="metadata_fields" hidden>
         <Input />
       </Form.Item>
 
@@ -404,8 +425,53 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
         </Space>
       </Card>
 
-      {/* Database Selection & Schema Tree */}
+      {/* Data Source Mode Selection */}
       {isConnected && (
+        <Card size="small" className="border-blue-200">
+          <Space orientation="vertical" className="w-full" size="middle">
+            <Space className="w-full">
+              <Layers size={18} className="text-blue-600" />
+              <Text strong>Data Source Mode</Text>
+            </Space>
+
+            <Form.Item
+              name="data_source_mode"
+              label="How do you want to specify what data to index?"
+              initialValue="collections"
+              rules={[{ required: true }]}
+            >
+              <Radio.Group size="large">
+                <Radio.Button value="collections">
+                  <Space>
+                    <Table size={14} />
+                    <span>Select Collections & Fields</span>
+                  </Space>
+                </Radio.Button>
+                <Radio.Button value="custom_query">
+                  <Space>
+                    <Filter size={14} />
+                    <span>Custom Query/Pipeline</span>
+                  </Space>
+                </Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+
+            <Alert
+              title={dataSourceMode === 'collections' ? 'Collection-Based Indexing' : 'Custom Query Mode'}
+              description={
+                dataSourceMode === 'collections'
+                  ? 'Browse and select collections, then choose specific fields to index. Great for exploring your data schema.'
+                  : 'Write a MongoDB aggregation pipeline or find query. Full control over what documents and fields to index.'
+              }
+              type="info"
+              showIcon
+            />
+          </Space>
+        </Card>
+      )}
+
+      {/* Database Selection & Schema Tree (only in collections mode) */}
+      {isConnected && dataSourceMode === 'collections' && (
         <Card size="small" className="border-blue-200">
           <Space orientation="vertical" className="w-full" size="middle">
             <Space className="w-full">
@@ -454,19 +520,21 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
             {!isLoadingSchemas && treeData.length > 0 && (
               <div>
                 <Alert
-                  title="Select what to index"
+                  title="Select fields and choose how to use them"
                   description={
                     <div>
                       <Paragraph className="mb-2">
-                        Check collections (entire collection) or specific fields to include in RAG indexing.
-                        Text fields with high presence are auto-selected.
+                        <strong>✓ Check fields</strong> to include in indexing.<br/>
+                        <strong>Then choose for each field:</strong>
                       </Paragraph>
-                      <Space size="small">
-                        <Tag color="blue">string</Tag> = Text field
-                        <Tag color="success">90%+</Tag> = High presence
-                        <Tag color="cyan">array</Tag> = Array type
-                        <Tag color="purple">nested</Tag> = Nested object
+                      <Space size="small" direction="vertical" className="ml-4">
+                        <div>🔍 <strong>Vectorize</strong> = Field content will be converted to embeddings for semantic search</div>
+                        <div>📋 <strong>Metadata</strong> = Field stored as-is for filtering and display (not searchable)</div>
                       </Space>
+                      <Paragraph className="mt-3 text-xs text-gray-500">
+                        💡 <strong>Tip:</strong> Mark text-rich fields (abstracts, descriptions, content) as "Vectorize". 
+                        Use "Metadata" for IDs, dates, categories, authors.
+                      </Paragraph>
                     </div>
                   }
                   type="info"
@@ -490,11 +558,51 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
                 />
 
                 <div className="mt-4">
-                  <Space size="small">
-                    <Text type="secondary">
-                      {checkedKeys.length} field(s) selected across {Object.keys(collectionsSchemas).length} collection(s)
-                    </Text>
-                  </Space>
+                  {checkedKeys.length > 0 && (
+                    <Card size="small" className="bg-gray-50">
+                      <Space orientation="vertical" className="w-full" size="middle">
+                        <Text strong>Configure how to use each selected field:</Text>
+                        <div className="space-y-3">
+                          {checkedKeys
+                            .filter((key) => key.toString().includes(':'))
+                            .map((key) => {
+                              const keyStr = key.toString();
+                              const fieldName = keyStr.split(':')[1];
+                              const isVectorize = contentFields.has(keyStr);
+                              
+                              return (
+                                <div key={keyStr} className="flex items-center justify-between p-2 bg-white rounded border">
+                                  <Text strong>{fieldName}</Text>
+                                  <Radio.Group
+                                    value={isVectorize ? 'vectorize' : 'metadata'}
+                                    onChange={(e) => {
+                                      const newContentFields = new Set(contentFields);
+                                      if (e.target.value === 'vectorize') {
+                                        newContentFields.add(keyStr);
+                                      } else {
+                                        newContentFields.delete(keyStr);
+                                      }
+                                      setContentFields(newContentFields);
+                                    }}
+                                    buttonStyle="solid"
+                                    size="small"
+                                  >
+                                    <Radio.Button value="vectorize">🔍 Vectorize</Radio.Button>
+                                    <Radio.Button value="metadata">📋 Metadata</Radio.Button>
+                                  </Radio.Group>
+                                </div>
+                              );
+                            })}
+                        </div>
+                        <Alert
+                          title="Summary"
+                          description={`${contentFields.size} field(s) will be vectorized, ${checkedKeys.length - contentFields.size} as metadata`}
+                          type="info"
+                          showIcon
+                        />
+                      </Space>
+                    </Card>
+                  )}
                 </div>
               </div>
             )}
@@ -502,8 +610,8 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
         </Card>
       )}
 
-      {/* Query Builder */}
-      {selectedDb && treeData.length > 0 && (
+      {/* Filter Documents (only in collections mode, optional) */}
+      {selectedDb && treeData.length > 0 && dataSourceMode === 'collections' && (
         <Card size="small" className="border-orange-200">
           <Space orientation="vertical" className="w-full" size="middle">
             <Space className="w-full">
@@ -585,8 +693,123 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
         </Card>
       )}
 
+      {/* Custom Query/Pipeline Mode */}
+      {isConnected && dataSourceMode === 'custom_query' && (
+        <Card size="small" className="border-orange-200">
+          <Space orientation="vertical" className="w-full" size="middle">
+            <Space className="w-full">
+              <Filter size={18} className="text-orange-600" />
+              <Text strong>Custom MongoDB Query or Aggregation Pipeline</Text>
+            </Space>
+
+            <Form.Item
+              name="database"
+              label="Database"
+              rules={[{ required: true, message: 'Please select a database' }]}
+            >
+              <Select
+                placeholder="Select a database"
+                options={databases.map((db) => ({
+                  label: (
+                    <Space>
+                      <Database size={14} />
+                      <span>{db}</span>
+                    </Space>
+                  ),
+                  value: db,
+                }))}
+                showSearch
+                size="large"
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="collection"
+              label="Collection"
+              rules={[{ required: true, message: 'Please specify a collection' }]}
+            >
+              <Input
+                placeholder="e.g. works, articles, users"
+                prefix={<Table size={14} />}
+                size="large"
+              />
+            </Form.Item>
+
+            <Alert
+              title="Write your MongoDB query"
+              description="You can use a find() query (JSON object) or an aggregation pipeline (JSON array). The system will automatically handle field extraction."
+              type="info"
+              showIcon
+            />
+
+            <Form.Item
+              name="custom_query"
+              label={
+                <Space>
+                  <span>Query or Pipeline (JSON)</span>
+                  <InfoTooltip
+                    title="MongoDB Query/Pipeline"
+                    content="Find query: {} or {field: value}. Aggregation: [{$match: {}}, {$project: {}}]"
+                  />
+                </Space>
+              }
+              rules={[{ required: true, message: 'Query is required in custom mode' }]}
+            >
+              <TextArea
+                rows={8}
+                placeholder='Find query: {"status": "published", "year": {"$gte": 2020}}
+
+Or aggregation pipeline:
+[
+  {"$match": {"status": "published"}},
+  {"$project": {"title": 1, "content": 1}}
+]'
+                className="font-mono text-sm"
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="content_field"
+              label={
+                <Space>
+                  <span>Main Content Field</span>
+                  <InfoTooltip
+                    title="Content Field"
+                    content="The field containing the main text to index (e.g., 'text', 'body', 'content')."
+                  />
+                </Space>
+              }
+              rules={[{ required: true }]}
+              initialValue="text"
+            >
+              <Input placeholder="e.g. text, body, content" />
+            </Form.Item>
+
+            <Form.Item
+              name="limit"
+              label={
+                <Space>
+                  <span>Document Limit (Optional)</span>
+                  <InfoTooltip
+                    title="Limit Documents"
+                    content="Maximum number of documents to process. Leave empty for all."
+                  />
+                </Space>
+              }
+            >
+              <InputNumber
+                min={1}
+                max={1000000}
+                placeholder="No limit"
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Space>
+        </Card>
+      )}
+
       {/* Advanced Settings */}
-      {selectedDb && treeData.length > 0 && (
+      {selectedDb && treeData.length > 0 && dataSourceMode === 'collections' && (
         <Collapse
           items={[
             {
