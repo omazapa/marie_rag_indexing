@@ -201,7 +201,7 @@ export default function JobsPage() {
 
       {hasError && (
         <Alert
-          message="Some jobs have failed"
+          title="Some jobs have failed"
           description="Check the error details in the table below."
           type="error"
           showIcon
@@ -228,7 +228,7 @@ export default function JobsPage() {
             expandedRowRender: (record) =>
               record.error ? (
                 <Alert
-                  message="Error Details"
+                  title="Error Details"
                   description={record.error}
                   type="error"
                   showIcon

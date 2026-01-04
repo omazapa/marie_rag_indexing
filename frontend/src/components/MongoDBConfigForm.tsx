@@ -265,7 +265,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
 
           {connectionStatus === 'success' && (
             <Alert
-              message="Connection successful"
+              title="Connection successful"
               description={`Found ${databases.length} database(s). Select one to continue.`}
               type="success"
               showIcon
@@ -276,7 +276,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
 
           {connectionStatus === 'error' && (
             <Alert
-              message="Connection failed"
+              title="Connection failed"
               description="Check your connection string, network, and MongoDB server status."
               type="error"
               showIcon
@@ -376,7 +376,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
                   children: (
                     <div className="space-y-4">
                       <Alert
-                        message="Schema Analysis"
+                        title="Schema Analysis"
                         description={`Analyzed ${schemaStats?.sampled} of ${schemaStats?.total} total documents to understand the collection structure.`}
                         type="info"
                         showIcon
@@ -461,7 +461,7 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
             />
 
             <Alert
-              message="Field Selection Tips"
+              title="Field Selection Tips"
               description="Text fields contain the main content for indexing. Metadata fields provide context and filtering options."
               type="info"
               showIcon

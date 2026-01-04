@@ -10,7 +10,7 @@ export const SQLConfigForm: React.FC = () => {
   return (
     <div className="space-y-4">
       <Alert
-        message="SQL Database Connection"
+        title="SQL Database Connection"
         description="Connect to PostgreSQL, MySQL, MariaDB, or other SQL databases. Supports batch queries and incremental updates."
         type="info"
         icon={<Database size={14} />}
@@ -138,7 +138,7 @@ export const S3ConfigForm: React.FC = () => {
   return (
     <div className="space-y-4">
       <Alert
-        message="S3 Cloud Storage"
+        title="S3 Cloud Storage"
         description="Connect to Amazon S3, MinIO, or S3-compatible storage. Supports PDF, DOCX, TXT, Markdown, and more."
         type="info"
         icon={<Cloud size={14} />}
@@ -267,7 +267,7 @@ export const WebScraperConfigForm: React.FC = () => {
   return (
     <div className="space-y-4">
       <Alert
-        message="Web Scraper Configuration"
+        title="Web Scraper Configuration"
         description="Extract content from websites, documentation, and knowledge bases. Respects robots.txt and includes rate limiting."
         type="info"
         icon={<Globe size={14} />}
@@ -413,7 +413,7 @@ export const GoogleDriveConfigForm: React.FC = () => {
   return (
     <div className="space-y-4">
       <Alert
-        message="Google Drive Integration"
+        title="Google Drive Integration"
         description="Access Google Docs, Sheets, and PDFs from your Drive. Requires OAuth credentials from Google Cloud Console."
         type="info"
         icon={<Cloud size={14} />}
@@ -422,7 +422,7 @@ export const GoogleDriveConfigForm: React.FC = () => {
       />
 
       <Alert
-        message="Setup Required"
+        title="Setup Required"
         description={
           <div>
             <p className="mb-2">To connect Google Drive, you need to:</p>

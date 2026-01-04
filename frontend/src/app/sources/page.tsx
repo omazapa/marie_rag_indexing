@@ -465,7 +465,7 @@ export default function SourcesPage() {
       />
 
       <Alert
-        message="RAG Data Sources"
+        title="RAG Data Sources"
         description={
           <div>
             Configure your data origins to extract, chunk, and index content for retrieval-augmented generation.
@@ -690,7 +690,7 @@ export default function SourcesPage() {
 
                   {sourceType && (
                     <Alert
-                      message={`${sourceType.toUpperCase().replace('_', ' ')} Configuration`}
+                      title={`${sourceType.toUpperCase().replace('_', ' ')} Configuration`}
                       description={getSourceDescription(sourceType)}
                       type="info"
                       showIcon
@@ -713,7 +713,7 @@ export default function SourcesPage() {
                   ) : (
                     <>
                       <Alert
-                        message="Connection Configuration"
+                        title="Connection Configuration"
                         description="Provide the necessary credentials and settings to connect to your data source."
                         type="info"
                         showIcon
@@ -749,7 +749,7 @@ export default function SourcesPage() {
         width={700}
       >
         <Alert
-          message="RAG Pipeline Execution"
+          title="RAG Pipeline Execution"
           description="Configure the ingestion process: data extraction, chunking, embedding, and vector storage."
           type="success"
           showIcon
@@ -998,7 +998,7 @@ export default function SourcesPage() {
         width={selectedSourceForEdit?.type === 'mongodb' ? 800 : 600}
       >
         <Alert
-          message="Editing Configuration"
+          title="Editing Configuration"
           description={`You are editing the configuration for ${selectedSourceForEdit?.name}. Changes will be applied immediately.`}
           type="info"
           showIcon
@@ -1024,7 +1024,7 @@ export default function SourcesPage() {
             <GoogleDriveConfigForm />
           ) : (
             <Alert
-              message="Generic Configuration"
+              title="Generic Configuration"
               description="Edit the configuration fields below. Some fields may require specific formats."
               type="warning"
               showIcon

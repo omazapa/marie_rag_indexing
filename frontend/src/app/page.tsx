@@ -196,7 +196,7 @@ export default function Dashboard() {
               >
                 {(!stats?.recent_jobs || stats.recent_jobs.length === 0) ? (
                   <Alert
-                    message="No recent jobs"
+                    title="No recent jobs"
                     description="Start your first ingestion job to see activity here."
                     type="info"
                     showIcon
