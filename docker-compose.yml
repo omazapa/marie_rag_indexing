@@ -22,12 +22,13 @@ services:
       dockerfile: frontend.Dockerfile
       target: dev
     ports:
-      - "3001:3000"
+      - "3001:3001"
     volumes:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:5001/api/v1}
+      - PORT=3001
     depends_on:
       - backend

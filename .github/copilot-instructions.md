@@ -6,9 +6,11 @@ You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generatio
 `marie_rag_indexing` is a modular system for indexing data from various sources (SQL, NoSQL, S3, Web, Local) into OpenSearch for RAG applications.
 
 ## Tech Stack
-- **Backend**: Python 3.10+, Flask, LangChain, OpenSearch-Py.
+- **Backend**: Python 3.10+, FastAPI, LangChain, OpenSearch-Py.
 - **Frontend**: Next.js (App Router), TypeScript, Ant Design (v6), Ant Design X (AI components).
 - **Package Management**: `uv` for Python (use `pyproject.toml`), `npm` for Frontend.
+- **Deployment**: Docker Compose (use `docker compose`, not `docker-compose`).
+- **Ports**: Frontend runs on port 3001, Backend on port 5001.
 - **Databases**:
   - **Vector Stores**: OpenSearch (Primary), Pinecone, Milvus, Weaviate, Qdrant, ChromaDB, PGVector.
   - **Metadata/State**: OpenSearch, PostgreSQL, MongoDB.

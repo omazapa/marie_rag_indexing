@@ -14,8 +14,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY frontend/ ./
 ENV NODE_ENV development
 ENV HOSTNAME "0.0.0.0"
-EXPOSE 3000
-CMD ["npm", "run", "dev"]
+ENV PORT 3001
+EXPOSE 3001
+CMD ["npm", "run", "dev", "--", "-p", "3001"]
 
 # Rebuild the source code only when needed
 FROM base AS builder
