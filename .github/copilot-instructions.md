@@ -25,6 +25,7 @@ You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generatio
 
 ### Commit Workflow
 - **NEVER ask the user to commit after each action**
+- **DO NOT prompt or suggest commits to the user**
 - **ALWAYS verify code quality BEFORE attempting a commit**:
   - Run type checks (frontend)
   - Check for parsing errors

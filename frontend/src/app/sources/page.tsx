@@ -82,7 +82,7 @@ export default function SourcesPage() {
     try {
       const suggestion = await assistantService.suggestConnector(assistantPrompt);
       setIsAssistantModalOpen(false);
-      setIsModalOpen(true);
+      handleOpenAddModal();
 
       // Pre-fill the form with the suggestion
       form.setFieldsValue({
@@ -426,6 +426,14 @@ export default function SourcesPage() {
     });
   };
 
+  const handleOpenAddModal = () => {
+    // Reset all state before opening
+    form.resetFields();
+    setPluginSchema(null);
+    setConfigStep(0);
+    setIsModalOpen(true);
+  };
+
   if (isLoadingSources) {
     return <div className="flex justify-center items-center h-64"><Spin size="large" /></div>;
   }
@@ -449,7 +457,7 @@ export default function SourcesPage() {
             >
               AI Assistant
             </Button>
-            <Button type="primary" icon={<Plus size={16} />} onClick={() => setIsModalOpen(true)}>
+            <Button type="primary" icon={<Plus size={16} />} onClick={handleOpenAddModal}>
               Add Source
             </Button>
           </Space>
@@ -476,7 +484,7 @@ export default function SourcesPage() {
       <Prompts
         title="Configuration Guide"
         onItemClick={(info) => {
-          if (info.data.key === 'add') setIsModalOpen(true);
+          if (info.data.key === 'add') handleOpenAddModal();
           if (info.data.key === 'assistant') setIsAssistantModalOpen(true);
         }}
         items={[
@@ -513,7 +521,7 @@ export default function SourcesPage() {
                 title="No Data Sources"
                 description="Start by adding your first data source to begin indexing."
                 actionLabel="Add First Source"
-                onAction={() => setIsModalOpen(true)}
+                onAction={handleOpenAddModal}
               />
             ),
           }}
@@ -534,6 +542,12 @@ export default function SourcesPage() {
         open={isModalOpen}
         onCancel={() => {
           setIsModalOpen(false);
+          setPluginSchema(null);
+          setConfigStep(0);
+          form.resetFields();
+        }}
+        afterClose={() => {
+          // Reset all state after modal closes
           setPluginSchema(null);
           setConfigStep(0);
           form.resetFields();

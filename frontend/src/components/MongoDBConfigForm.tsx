@@ -46,8 +46,12 @@ interface MongoDBConfigFormProps {
 interface SchemaField {
   name: string;
   type: string;
-  sample?: string;
-  isNested?: boolean;
+  types: string[];
+  presence: number;
+  count: number;
+  isNested: boolean;
+  isArray: boolean;
+  arrayElementType?: string;
 }
 
 export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) => {
@@ -56,6 +60,8 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
   const [collections, setCollections] = useState<string[]>([]);
   const [schema, setSchema] = useState<SchemaField[]>([]);
   const [sampleDoc, setSampleDoc] = useState<Record<string, unknown> | null>(null);
+  const [schemaStats, setSchemaStats] = useState<{ total: number; sampled: number } | null>(null);
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [isLoadingDbs, setIsLoadingDbs] = useState(false);
   const [isLoadingCols, setIsLoadingCols] = useState(false);
   const [isLoadingSchema, setIsLoadingSchema] = useState(false);
@@ -143,32 +149,36 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     try {
       const result = await mongodbService.getSchema(connectionString, db, collection);
 
-      // Parse schema fields
-      const fields: SchemaField[] = result.schema.map(field => {
-        const [name, type] = field.split(': ');
-        return {
-          name,
-          type,
-          isNested: name.includes('.'),
-        };
-      });
+      // Convert schema object to field array
+      const fields: SchemaField[] = Object.entries(result.schema).map(([fieldPath, info]) => ({
+        name: fieldPath,
+        type: info.type,
+        types: info.types,
+        presence: info.presence,
+        count: info.count,
+        isNested: info.isNested,
+        isArray: info.isArray,
+        arrayElementType: info.arrayElementType,
+      }));
 
       setSchema(fields);
+      setSchemaStats({
+        total: result.totalDocuments,
+        sampled: result.sampledDocuments,
+      });
+      setSampleDoc(result.sampleDocument || null);
 
-      // Parse sample document if available
-      if (result.sample) {
-        try {
-          const sample = JSON.parse(result.sample);
-          setSampleDoc(sample);
-        } catch {
-          setSampleDoc(null);
-        }
-      }
+      // Auto-select text fields (string type with high presence)
+      const autoSelectedFields = fields
+        .filter(f => f.type === 'string' && f.presence > 80 && !f.name.startsWith('_'))
+        .map(f => f.name);
+      setSelectedFields(autoSelectedFields);
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : 'Unknown error';
       message.error(`Failed to load schema: ${errMsg}`);
       setSchema([]);
       setSampleDoc(null);
+      setSchemaStats(null);
     } finally {
       setIsLoadingSchema(false);
     }
@@ -192,15 +202,19 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
     }
   }, [selectedDb, selectedCollection, fetchSchema]);
 
-  // Helper to detect text fields
+  // Helper to detect text fields based on type and presence
   const textFields = schema.filter(f =>
-    f.type === 'str' ||
-    f.type === 'string' ||
-    f.name.toLowerCase().includes('text') ||
-    f.name.toLowerCase().includes('content') ||
-    f.name.toLowerCase().includes('body') ||
-    f.name.toLowerCase().includes('description')
+    f.type === 'string' &&
+    !f.name.startsWith('_') &&
+    f.presence > 50
   );
+
+  // Sync selected fields with form when they change
+  useEffect(() => {
+    if (selectedFields.length > 0) {
+      form.setFieldValue('text_fields', selectedFields);
+    }
+  }, [selectedFields, form]);
 
   // Helper to detect metadata fields
   const metadataFields = schema.filter(f =>
@@ -354,26 +368,88 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
                   label: (
                     <Space>
                       <Eye size={14} />
-                      <span>View Schema & Sample Document ({schema.length} fields)</span>
+                      <span>
+                        View Schema Analysis ({schema.length} fields from {schemaStats?.sampled} sampled documents)
+                      </span>
                     </Space>
                   ),
                   children: (
                     <div className="space-y-4">
+                      <Alert
+                        message="Schema Analysis"
+                        description={`Analyzed ${schemaStats?.sampled} of ${schemaStats?.total} total documents to understand the collection structure.`}
+                        type="info"
+                        showIcon
+                        className="mb-4"
+                      />
+
                       <div>
-                        <Text type="secondary" className="block mb-2">Available Fields:</Text>
-                        <div className="flex flex-wrap gap-2">
-                          {schema.map(field => (
-                            <Tag key={field.name} color={field.type === 'str' ? 'blue' : 'default'}>
-                              {field.name} <Text type="secondary" className="text-xs">({field.type})</Text>
-                            </Tag>
-                          ))}
+                        <div className="flex justify-between items-center mb-3">
+                          <Text strong>Available Fields - Select for Indexing:</Text>
+                          <Space>
+                            <Button
+                              size="small"
+                              onClick={() => setSelectedFields(schema.filter(f => !f.name.startsWith('_')).map(f => f.name))}
+                            >
+                              Select All
+                            </Button>
+                            <Button size="small" onClick={() => setSelectedFields([])}>
+                              Clear All
+                            </Button>
+                          </Space>
+                        </div>
+
+                        <div className="max-h-96 overflow-y-auto border rounded p-3 bg-gray-50">
+                          <Checkbox.Group
+                            value={selectedFields}
+                            onChange={(checkedValues) => setSelectedFields(checkedValues as string[])}
+                            className="w-full"
+                          >
+                            <Space direction="vertical" className="w-full" size="small">
+                              {schema.map(field => (
+                                <div
+                                  key={field.name}
+                                  className="flex items-center justify-between p-2 hover:bg-white rounded transition-colors"
+                                >
+                                  <Checkbox value={field.name} disabled={field.name === '_id'}>
+                                    <Space size="small">
+                                      <Text strong>{field.name}</Text>
+                                      {field.isNested && (
+                                        <Tag color="purple" className="text-xs">nested</Tag>
+                                      )}
+                                      {field.isArray && (
+                                        <Tag color="cyan" className="text-xs">
+                                          array{field.arrayElementType ? ` of ${field.arrayElementType}` : ''}
+                                        </Tag>
+                                      )}
+                                    </Space>
+                                  </Checkbox>
+                                  <Space size="small">
+                                    <Tag color={field.type === 'string' ? 'blue' : field.type === 'int' || field.type === 'double' ? 'green' : 'default'}>
+                                      {field.type}
+                                      {field.types.length > 1 && (
+                                        <Tooltip title={`Multiple types: ${field.types.join(', ')}`}>
+                                          <Text className="ml-1 text-xs">+{field.types.length - 1}</Text>
+                                        </Tooltip>
+                                      )}
+                                    </Tag>
+                                    <Tooltip title={`Present in ${field.count} of ${schemaStats?.sampled} sampled documents`}>
+                                      <Tag color={field.presence >= 90 ? 'success' : field.presence >= 50 ? 'warning' : 'default'}>
+                                        {field.presence.toFixed(1)}%
+                                      </Tag>
+                                    </Tooltip>
+                                  </Space>
+                                </div>
+                              ))}
+                            </Space>
+                          </Checkbox.Group>
                         </div>
                       </div>
 
                       {sampleDoc && (
                         <div>
-                          <Text type="secondary" className="block mb-2">Sample Document:</Text>
-                          <pre className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-48">
+                          <Text type="secondary" className="block mb-2">Sample Document Preview:</Text>
+                          <pre className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-64 border">
                             {JSON.stringify(sampleDoc, null, 2)}
                           </pre>
                         </div>

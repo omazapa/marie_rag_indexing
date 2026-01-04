@@ -8,9 +8,22 @@ export interface MongoCollectionsResponse {
   collections: string[];
 }
 
+export interface SchemaFieldInfo {
+  type: string;
+  types: string[];
+  presence: number;
+  count: number;
+  isNested: boolean;
+  isArray: boolean;
+  arrayElementType?: string;
+}
+
 export interface MongoSchemaResponse {
-  schema: string[];
-  sample?: string;
+  schema: Record<string, SchemaFieldInfo>;
+  totalDocuments: number;
+  sampledDocuments: number;
+  sampleDocument?: Record<string, unknown>;
+  message?: string;
 }
 
 export const mongodbService = {
