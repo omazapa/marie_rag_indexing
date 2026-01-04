@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { apiClientWithRetry } from './api';
 
 export interface Plugin {
   id: string;
@@ -19,12 +19,11 @@ export interface ConfigSchema {
 
 export const pluginService = {
   getPlugins: async (): Promise<Plugin[]> => {
-    const response = await apiClient.get('/plugins');
-    return response.data.plugins;
+    const data = await apiClientWithRetry.get<{ plugins: Plugin[] }>('/plugins');
+    return data.plugins;
   },
 
   getPluginSchema: async (pluginId: string): Promise<ConfigSchema> => {
-    const response = await apiClient.get(`/plugins/${pluginId}/schema`);
-    return response.data;
+    return await apiClientWithRetry.get<ConfigSchema>(`/plugins/${pluginId}/schema`);
   },
 };

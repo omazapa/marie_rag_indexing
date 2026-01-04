@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { apiClientWithRetry } from './api';
 
 export interface DashboardStats {
   total_documents: number;
@@ -14,7 +14,6 @@ export interface DashboardStats {
 
 export const statsService = {
   getStats: async (): Promise<DashboardStats> => {
-    const response = await apiClient.get('/stats');
-    return response.data;
+    return await apiClientWithRetry.get<DashboardStats>('/stats');
   },
 };

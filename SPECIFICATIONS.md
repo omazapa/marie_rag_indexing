@@ -62,7 +62,7 @@ The system is designed to be database-agnostic, supporting multiple vector store
 ### 4. Management Dashboard (Web Interface)
 
 - **Frontend**: Next.js with Ant Design (v6) & Ant Design X (v2.1.2+).
-- **Backend**: Flask API for orchestration.
+- **Backend**: FastAPI for orchestration and async operations.
 - **AI Interface Strategy**:
     - **RICH Paradigm**: Implementation of Role, Intention, Conversation, and Hybrid UI.
     - **Hybrid UI**: Seamless blending of natural language interactions (LUI) with structured graphical components (GUI).
@@ -83,7 +83,7 @@ The system is designed to be database-agnostic, supporting multiple vector store
 
 ## Technical Stack
 
-- **Backend**: Python 3.10+, Flask, LangChain, OpenSearch-Py.
+- **Backend**: Python 3.10+, FastAPI, LangChain, OpenSearch-Py.
 - **Frontend**: Next.js, Ant Design, Ant Design X, TanStack Query.
 - **Embeddings**: HuggingFace, OpenAI, CLIP, SigLIP.
 - **Infrastructure**: Docker-ready, GPU/CPU compatible.

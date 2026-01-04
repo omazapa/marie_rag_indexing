@@ -143,20 +143,14 @@ async def get_mongodb_schema(
         all_keys = result[0]["allkeys"] if result else []
 
         # Analyze field types and presence for each key
-        field_analysis: dict[str, Any] = {}
-
         # Sample documents to analyze types
         sample_docs = list(coll.aggregate([{"$sample": {"size": sample_size}}]))
 
-        # First pass: collect ALL unique field paths across all documents
-        all_field_paths = collect_all_field_paths(sample_docs)
-
-        # Second pass: analyze each field path
-        for field_path in sorted(all_field_paths):
-            field_analysis[field_path] = analyze_field_path(field_path, sample_docs)
+        # Analyze schema using MongoDB analyze-schema style
+        schema_entries = analyze_schema(sample_docs, max_depth=10)
 
         # Convert all ObjectIds to strings in the entire response
-        field_analysis = convert_objectid_to_str(field_analysis)
+        schema_entries = convert_objectid_to_str(schema_entries)
 
         # Get one sample document for preview and convert all ObjectIds to strings
         sample_doc = sample_docs[0] if sample_docs else None
@@ -164,7 +158,7 @@ async def get_mongodb_schema(
             sample_doc = convert_objectid_to_str(sample_doc)
 
         return {
-            "schema": field_analysis,
+            "schema": schema_entries,
             "totalDocuments": doc_count,
             "sampledDocuments": sample_size,
             "sampleDocument": sample_doc,
@@ -228,28 +222,20 @@ async def get_mongodb_schemas_batch(request: dict[str, Any]):
                     },
                 ]
 
-                # Get all unique keys
+                # Get all unique keys (used for validation if needed)
                 result = list(coll.aggregate(pipeline))
-                all_keys = result[0]["allkeys"] if result else []
-
-                # Analyze field types and presence for each key
-                field_analysis: dict[str, Any] = {}
 
                 # Sample documents to analyze types
                 sample_docs = list(coll.aggregate([{"$sample": {"size": sample_size}}]))
 
-                # First pass: collect ALL unique field paths across all documents
-                all_field_paths = collect_all_field_paths(sample_docs)
-
-                # Second pass: analyze each field path
-                for field_path in sorted(all_field_paths):
-                    field_analysis[field_path] = analyze_field_path(field_path, sample_docs)
+                # Analyze schema using MongoDB analyze-schema style
+                schema_entries = analyze_schema(sample_docs, max_depth=10)
 
                 # Convert all ObjectIds to strings in the entire response
-                field_analysis = convert_objectid_to_str(field_analysis)
+                schema_entries = convert_objectid_to_str(schema_entries)
 
                 results[collection_name] = {
-                    "schema": field_analysis,
+                    "schema": schema_entries,
                     "totalDocuments": doc_count,
                     "sampledDocuments": sample_size,
                 }
@@ -281,24 +267,114 @@ def convert_objectid_to_str(obj: Any) -> Any:
 
 def get_value_type(value: Any) -> str:
     """Determine the MongoDB BSON type of a value."""
-    if isinstance(value, ObjectId):
+    if value is None:
+        return "Null"
+    elif isinstance(value, ObjectId):
         return "ObjectId"
     elif isinstance(value, bool):
-        return "bool"
+        return "Boolean"
     elif isinstance(value, int):
-        return "int"
+        return "Number"
     elif isinstance(value, float):
-        return "double"
+        return "Number"
     elif isinstance(value, str):
-        return "string"
+        return "String"
     elif isinstance(value, dict):
-        return "object"
+        return "Document"
     elif isinstance(value, list):
-        return "array"
-    elif value is None:
-        return "null"
+        return "Array"
     else:
         return type(value).__name__
+
+
+def analyze_schema(documents: list[dict[str, Any]], max_depth: int = 10) -> list[dict[str, Any]]:
+    """
+    Analyze MongoDB collection schema similar to MongoDB analyze-schema snippet.
+    Returns a list of entries where each path+type combination is a row.
+    Percentages for nested fields are relative to their parent field.
+    """
+    from collections import defaultdict
+
+    # Structure: {path: {type: count}}
+    field_type_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    # Structure: {path: set_of_doc_ids_that_have_this_field}
+    field_document_ids: dict[str, set[int]] = defaultdict(set)
+
+    total_docs = len(documents)
+
+    def analyze_value(doc_id: int, path: list[str], value: Any, depth: int = 0) -> None:
+        """Recursively analyze a value."""
+        if depth >= max_depth:
+            return
+
+        path_str = ".".join(path)
+
+        # Register that this document has this field
+        field_document_ids[path_str].add(doc_id)
+
+        # Determine the type
+        value_type = get_value_type(value)
+
+        # Count the type
+        field_type_counts[path_str][value_type] += 1
+
+        # Recurse ONLY into direct objects (NOT into arrays)
+        if isinstance(value, dict) and value:
+            for key, nested_value in value.items():
+                if depth == 0 and key.startswith("$"):
+                    continue
+                analyze_value(doc_id, [*path, key], nested_value, depth + 1)
+
+        # For arrays, do NOT analyze their content (just register as Array)
+
+    # Analyze all documents
+    for doc_id, doc in enumerate(documents):
+        if not isinstance(doc, dict):
+            continue
+
+        for key, value in doc.items():
+            if key.startswith("$"):
+                continue
+            analyze_value(doc_id, [key], value, depth=0)
+
+    # Generate result
+    results = []
+
+    # Get all unique paths sorted
+    all_paths = sorted(field_type_counts.keys())
+
+    for path_str in all_paths:
+        docs_with_field = len(field_document_ids[path_str])
+
+        # Calculate comparison base for percentages
+        # For root-level fields: total documents
+        # For nested fields: documents that have the parent field
+        if "." in path_str:
+            # Nested field - calculate base from parent
+            parent_path = ".".join(path_str.split(".")[:-1])
+            if parent_path in field_document_ids:
+                parent_docs = len(field_document_ids[parent_path])
+            else:
+                parent_docs = total_docs
+        else:
+            # Root-level field
+            parent_docs = total_docs
+
+        docs_without_field = parent_docs - docs_with_field
+
+        # Add Undefined type if field is not in all parent documents
+        if docs_without_field > 0:
+            percentage = round((docs_without_field / parent_docs) * 100, 1)
+            results.append({"field": path_str, "percentage": percentage, "type": "Undefined"})
+
+        # Add each type found (sorted by frequency descending)
+        for type_name, type_count in sorted(
+            field_type_counts[path_str].items(), key=lambda x: -x[1]
+        ):
+            percentage = round((type_count / parent_docs) * 100, 1)
+            results.append({"field": path_str, "percentage": percentage, "type": type_name})
+
+    return results
 
 
 def collect_all_field_paths(

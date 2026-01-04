@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { apiClientWithRetry } from './api';
 
 export interface ConnectorSuggestion {
   plugin_id: string;
@@ -8,7 +8,7 @@ export interface ConnectorSuggestion {
 
 export const assistantService = {
   suggestConnector: async (prompt: string): Promise<ConnectorSuggestion> => {
-    const response = await apiClient.post('/assistant/connector', { prompt });
+    const response = await apiClientWithRetry.post('/assistant/connector', { prompt });
     return response.data;
   }
 };

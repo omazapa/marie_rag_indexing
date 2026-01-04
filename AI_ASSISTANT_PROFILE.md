@@ -21,7 +21,7 @@
   - Static site generation (SSG)
   - API routes and middleware
   - Modern React patterns and hooks
-- **Backend**: Flask (Python framework)
+- **Backend**: FastAPI (Python framework)
 
   - RESTful API design
   - Microservices architecture
@@ -596,7 +596,7 @@
 ### Technologies Stack Proficiency
 
 - **Frontend**: React, Next.js, TypeScript, Ant Design
-- **Backend**: Python, Flask
+- **Backend**: Python, FastAPI
 - **AI/ML**: TensorFlow, PyTorch, Transformers, LangChain, RAG, OpenSearch Vector
 - **Databases**: PostgreSQL, MongoDB, Redis, OpenSearch (Vector Search)
 - **DevOps**: Docker, CI/CD, Cloud platforms (AWS, Azure, GCP)

@@ -12,9 +12,8 @@ These are the most critical fixes that should be applied immediately to resolve 
 ```bash
 cd /home/ozapatam/Projects/Colav/marie_rag_indexing
 cat > .env.example << 'EOF'
-# Flask Configuration
-FLASK_ENV=development
-FLASK_DEBUG=True
+# FastAPI Configuration
+DEBUG=True
 SECRET_KEY=your-secret-key-change-in-production
 
 # OpenSearch Configuration
@@ -267,7 +266,7 @@ Create `backend/app/api/responses.py`:
 Standardized API response helpers.
 """
 from typing import Any, Optional, Dict
-from flask import jsonify
+from fastapi.responses import JSONResponse
 
 
 def success_response(data: Any, message: Optional[str] = None, status_code: int = 200):

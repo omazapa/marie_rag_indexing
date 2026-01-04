@@ -11,7 +11,7 @@
 Marie RAG Indexing is a modular and scalable system designed to index information from multiple data sources for Retrieval-Augmented Generation (RAG) applications. Built following Hexagonal Architecture and SOLID principles.
 
 ### Core Technologies
-- **Backend**: Python 3.10+, Flask, LangChain, OpenSearch-Py
+- **Backend**: Python 3.10+, FastAPI, LangChain, OpenSearch-Py
 - **Frontend**: Next.js 16, React 19, Ant Design 6, Ant Design X
 - **Architecture**: Hexagonal (Ports & Adapters), SOLID Principles
 - **Package Management**: `uv` (Python), `npm` (Frontend)
@@ -25,7 +25,7 @@ Marie RAG Indexing is a modular and scalable system designed to index informatio
 **Date**: January 3, 2026
 
 #### Implementation
-- Refactored monolithic `main.py` into modular Flask Blueprints
+- Refactored monolithic `main.py` into modular FastAPI routers
 - Created organized API route structure:
   - `backend/app/api/routes/health.py` - Health checks
   - `backend/app/api/routes/plugins.py` - Data source plugins
@@ -295,7 +295,7 @@ JWT_REFRESH_TOKEN_EXPIRES=604800  # 7 days
 **Issue**: No Swagger/OpenAPI documentation
 
 **Action**:
-- Add Flask-RESTX or similar for automatic API docs
+- Add comprehensive API documentation with FastAPI's automatic OpenAPI/Swagger docs
 - Create endpoint documentation
 - Add request/response examples
 
@@ -394,7 +394,7 @@ npm run dev -- -p 3001
 ## 📝 Change Log
 
 ### January 3, 2026
-- Refactored backend to use Flask Blueprints
+- Refactored backend to use FastAPI routers
 - Implemented Jobs monitoring system
 - Added Error Boundary and improved error handling
 - Enhanced Dashboard with skeleton loading

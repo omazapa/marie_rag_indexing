@@ -1,6 +1,6 @@
 # GitHub Copilot Instructions - Marie RAG Indexing
 
-You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generation) systems, OpenSearch, and Full-Stack development with Flask and Next.js.
+You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generation) systems, OpenSearch, and Full-Stack development with FastAPI and Next.js.
 
 ## Project Context
 `marie_rag_indexing` is a modular system for indexing data from various sources (SQL, NoSQL, S3, Web, Local) into OpenSearch for RAG applications.
@@ -26,15 +26,15 @@ You are an expert AI assistant specialized in RAG (Retrieval-Augmented Generatio
 - Use descriptive variable and function names.
 
 ### Commit Workflow
-- **ABSOLUTELY NEVER ask the user to commit**
-- **ABSOLUTELY NEVER suggest commits to the user**
-- **ABSOLUTELY NEVER prompt for commits**
-- **DO NOT make automatic commits unless explicitly asked**
-- **DO NOT ask if the user wants to commit changes**
+- **ABSOLUTELY NEVER make git commits automatically**
+- **ONLY commit when the user explicitly asks for it**
+- **NEVER ask the user to commit**
+- **NEVER suggest commits to the user**
+- **NEVER prompt for commits**
 - When code changes are made, simply continue working without mentioning commits
-- The user will handle all git operations manually
+- The user will handle all git operations manually unless they specifically request a commit
 
-### Backend (Python/Flask)
+### Backend (Python/FastAPI)
 - Use Pydantic for data validation and schema definitions.
 - Implement new data sources as plugins following the standard in `backend/app/plugins/base.py`.
 - Use `uv` for dependency management.

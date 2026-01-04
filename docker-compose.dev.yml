@@ -5,11 +5,7 @@ services:
     command: >
       sh -c "uv sync && uv run uvicorn backend.app.main:app
       --host 0.0.0.0
-      --port 5001
-      --reload
-      --reload-exclude 'backend/tests/*'
-      --reload-exclude '**/__pycache__/*'
-      --reload-exclude '**/*.pyc'"
+      --port 5001"
     volumes:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
@@ -18,6 +14,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - WATCHFILES_FORCE_POLLING=false
+      - PYTHONDONTWRITEBYTECODE=1
 
   frontend:
     command: npm run dev

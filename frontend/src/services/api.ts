@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
 
@@ -9,6 +9,60 @@ export const apiClient = axios.create({
   },
   timeout: 30000, // 30 seconds
 });
+
+// Helper function to implement retry logic with exponential backoff
+const axiosRetry = async <T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000,
+  shouldRetry?: (error: unknown) => boolean
+): Promise<T> => {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+
+      // Check if we should retry
+      const isNetworkError = !error.response && error.request;
+      const isServerError = error.response && error.response.status >= 500;
+      const customCheck = shouldRetry ? shouldRetry(error) : true;
+
+      const shouldAttemptRetry = (isNetworkError || isServerError) && customCheck && attempt < maxRetries;
+
+      if (shouldAttemptRetry) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = baseDelay * Math.pow(2, attempt);
+        console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        break;
+      }
+    }
+  }
+
+  throw lastError;
+};
+
+// Wrapper for apiClient requests with retry logic
+export const apiClientWithRetry = {
+  get: <T = any>(url: string, config?: AxiosRequestConfig) =>
+    axiosRetry(() => apiClient.get<T>(url, config).then(res => res.data)),
+
+  post: <T = any>(url: string, data?: any, config?: AxiosRequestConfig) =>
+    axiosRetry(() => apiClient.post<T>(url, data, config).then(res => res.data)),
+
+  put: <T = any>(url: string, data?: any, config?: AxiosRequestConfig) =>
+    axiosRetry(() => apiClient.put<T>(url, data, config).then(res => res.data)),
+
+  delete: <T = any>(url: string, config?: AxiosRequestConfig) =>
+    axiosRetry(() => apiClient.delete<T>(url, config).then(res => res.data)),
+
+  patch: <T = any>(url: string, data?: any, config?: AxiosRequestConfig) =>
+    axiosRetry(() => apiClient.patch<T>(url, data, config).then(res => res.data)),
+};
 
 // Request interceptor
 apiClient.interceptors.request.use(

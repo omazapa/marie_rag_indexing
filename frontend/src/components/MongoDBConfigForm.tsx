@@ -163,17 +163,40 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
         }
 
         // Convert schema to field array
-        const fields: SchemaField[] = Object.entries(collectionData.schema).map(([fieldPath, info]) => {
-          const fieldInfo = info as unknown as Record<string, unknown>;
+        // Schema is now an array of entries, group by field name
+        const schemaArray = Array.isArray(collectionData.schema)
+          ? collectionData.schema as Array<{ field: string; percentage: number; type: string }>
+          : [];
+
+        // Group entries by field name
+        const fieldMap = new Map<string, { types: Set<string>; percentages: number[]; maxPercentage: number }>();
+
+        schemaArray.forEach(entry => {
+          if (!fieldMap.has(entry.field)) {
+            fieldMap.set(entry.field, { types: new Set(), percentages: [], maxPercentage: 0 });
+          }
+          const fieldData = fieldMap.get(entry.field)!;
+          if (entry.type !== 'Undefined') {
+            fieldData.types.add(entry.type);
+          }
+          fieldData.percentages.push(entry.percentage);
+          fieldData.maxPercentage = Math.max(fieldData.maxPercentage, entry.percentage);
+        });
+
+        // Convert to field array
+        const fields: SchemaField[] = Array.from(fieldMap.entries()).map(([fieldPath, fieldData]) => {
+          const typesArray = Array.from(fieldData.types);
+          const primaryType = typesArray[0] || 'unknown';
+
           return {
             name: fieldPath,
-            type: (fieldInfo.type as string) || ((fieldInfo.types as string[]) && (fieldInfo.types as string[]).length > 0 ? (fieldInfo.types as string[])[0] : 'unknown'),
-            types: (fieldInfo.types as string[]) || [],
-            presence: (fieldInfo.percentage as number) || (fieldInfo.presence as number) || 0,
-            count: (fieldInfo.count as number) || 0,
-            isNested: (fieldInfo.isNested as boolean) || false,
-            isArray: (fieldInfo.isArray as boolean) || false,
-            arrayElementType: fieldInfo.arrayElementType as string | undefined,
+            type: primaryType.toLowerCase(),
+            types: typesArray.map(t => t.toLowerCase()),
+            presence: fieldData.maxPercentage,
+            count: 0,
+            isNested: fieldPath.includes('.'),
+            isArray: primaryType === 'Array',
+            arrayElementType: undefined,
           };
         });
 
@@ -273,29 +296,52 @@ export const MongoDBConfigForm: React.FC<MongoDBConfigFormProps> = ({ form }) =>
 
   // Sync checked keys with form
   useEffect(() => {
-    if (checkedKeys.length > 0) {
-      // Extract selected collections and fields
-      const selectedData: Record<string, string[]> = {};
+    // Extract selected collections and fields from checked keys
+    const selectedData: Record<string, string[]> = {};
 
-      checkedKeys.forEach((key) => {
-        const keyStr = key.toString();
-        if (keyStr.includes(':')) {
-          const [collection, field] = keyStr.split(':');
-          if (!selectedData[collection]) {
-            selectedData[collection] = [];
-          }
-          if (field) {
-            selectedData[collection].push(field);
-          }
+    checkedKeys.forEach((key) => {
+      const keyStr = key.toString();
+      if (keyStr.includes(':')) {
+        const [collection, field] = keyStr.split(':');
+        if (!selectedData[collection]) {
+          selectedData[collection] = [];
+        }
+        if (field) {
+          selectedData[collection].push(field);
+        }
+      }
+    });
+
+    form.setFieldValue('selected_collections', selectedData);
+  }, [checkedKeys, form]);
+
+  // Load existing selected collections when editing
+  useEffect(() => {
+    const existingCollections = form.getFieldValue('selected_collections');
+    if (existingCollections && typeof existingCollections === 'object' && Object.keys(existingCollections).length > 0) {
+      const keysToCheck: React.Key[] = [];
+
+      Object.entries(existingCollections).forEach(([collection, fields]) => {
+        if (Array.isArray(fields)) {
+          fields.forEach((field: string) => {
+            keysToCheck.push(`${collection}:${field}`);
+          });
         }
       });
 
-      form.setFieldValue('selected_collections', selectedData);
+      if (keysToCheck.length > 0) {
+        setCheckedKeys(keysToCheck);
+      }
     }
-  }, [checkedKeys, form]);
+  }, [form, treeData]);
 
   return (
     <div className="space-y-4">
+      {/* Hidden fields for MongoDB config */}
+      <Form.Item name="selected_collections" hidden>
+        <Input />
+      </Form.Item>
+
       {/* Connection Section */}
       <Card size="small" className="border-purple-200">
         <Space orientation="vertical" className="w-full" size="middle">

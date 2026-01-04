@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { apiClientWithRetry } from './api';
 
 export interface IngestionJob {
   id: string;
@@ -19,12 +19,12 @@ export interface JobsResponse {
 
 export const jobService = {
   getJobs: async (): Promise<IngestionJob[]> => {
-    const response = await apiClient.get<JobsResponse>('/jobs');
+    const response = await apiClientWithRetry.get<JobsResponse>('/jobs');
     return response.data.jobs;
   },
 
   getJob: async (jobId: string): Promise<IngestionJob> => {
-    const response = await apiClient.get<IngestionJob>(`/jobs/${jobId}`);
+    const response = await apiClientWithRetry.get<IngestionJob>(`/jobs/${jobId}`);
     return response.data;
   },
 };

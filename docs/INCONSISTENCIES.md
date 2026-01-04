@@ -275,7 +275,7 @@ All routes under `/api/v1` but no clear versioning strategy.
 #### Recommendation
 ```python
 # backend/app/api/__init__.py
-def register_blueprints(app: Flask, version: str = "v1"):
+def register_routers(app: FastAPI, version: str = "v1"):
     prefix = f"/api/{version}"
 
     app.register_blueprint(health_bp)  # No version (global)
@@ -284,7 +284,7 @@ def register_blueprints(app: Flask, version: str = "v1"):
     # ...
 
 # Future v2 routes
-def register_v2_blueprints(app: Flask):
+def register_v2_routers(app: FastAPI):
     from .v2.routes import sources_v2_bp
     app.register_blueprint(sources_v2_bp, url_prefix="/api/v2")
 ```
